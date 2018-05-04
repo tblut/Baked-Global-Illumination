@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.0)
+project(lodepng)
+
+add_library(lodepng ${GLOW_LINK_TYPE} lodepng/lodepng.cpp)
+target_include_directories(lodepng PUBLIC ./)
+if(MSVC)
+    target_compile_options(lodepng PUBLIC /MP)
+else()
+    target_compile_options(lodepng PRIVATE -Wall -Werror -std=c++11)
+endif()

@@ -1,0 +1,50 @@
+// This file is auto-generated and should not be modified directly.
+\#include "tests.hh"
+
+\#include <glow/std140.hh>
+\#include <glow/objects/UniformBuffer.hh>
+\#include <glow/objects/Shader.hh>
+\#include <glow/objects/Program.hh>
+
+
+GLOW_TEST(Std140Gen, $name)
+{
+#for $test in $tests
+    {
+        struct s$test.name
+        {
+#for $field in $test.fields
+            std140$field.type $field.name;
+#end for
+        };
+
+        auto ub = UniformBuffer::create();
+        ub->addVerification({
+#for $field in $test.fields
+            {&s${test.name}::$field.name, "$field.name"}, //
+#end for
+        });
+
+        auto shader = Shader::createFromSource(GL_VERTEX_SHADER,
+            "layout(std140) uniform Buffer {\n"
+#for $field in $test.fields
+            "  $field.type $field.name;\n"
+#end for
+            "};\n"
+            "out float x;\n"
+            "void main() {\n"
+            "   x = 0\n"
+#for $field in $test.fields
+            "     + $field.access\n"
+#end for
+            "   ;\n"
+            "}\n"
+         );
+        ASSERT_TRUE(shader->isCompiledWithoutErrors());
+
+        auto prog = Program::create(shader);
+        ASSERT_TRUE(prog->verifyUniformBuffer("Buffer", ub));
+    }
+#end for
+}
+

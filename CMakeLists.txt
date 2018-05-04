@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.0)
+project(BakedGI)
+
+add_subdirectory(assimp)
+add_subdirectory(aion)
+add_subdirectory(AntTweakBar)
+add_subdirectory(glow)
+add_subdirectory(glow-extras)
+
+option(GLFW_BUILD_EXAMPLES "" OFF)
+option(GLFW_BUILD_TESTS "" OFF)
+option(GLFW_BUILD_DOCS "" OFF)
+option(GLFW_INSTALL "" OFF)
+if(MSVC)
+  option(BUILD_SHARED_LIBS "" OFF)
+else()
+  option(BUILD_SHARED_LIBS "" ON)
+endif()
+add_subdirectory(glfw)
+
+add_subdirectory(baked-gi)

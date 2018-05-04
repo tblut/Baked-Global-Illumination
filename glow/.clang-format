@@ -1,0 +1,54 @@
+# Style file for clang-format ( http://clang.llvm.org/docs/ClangFormatStyleOptions.html )
+
+# Style is based on google's c++ coding style.
+# see http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml
+BasedOnStyle: Google
+#Language: Cpp
+Standard: Cpp11
+
+
+# 80 columns guideline
+ColumnLimit: 120
+PenaltyExcessCharacter: 1
+PenaltyBreakString: 50
+
+
+# Indentation and Braces
+IndentWidth: 4
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: true
+#BraceBreakingStyle: ???
+BreakBeforeBinaryOperators: true
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializersBeforeComma: false
+BreakBeforeBraces: Allman
+BinPackParameters: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+Cpp11BracedListStyle: true
+IndentCaseLabels: false
+
+
+# Spaces
+DerivePointerAlignment: true
+DerivePointerBinding: true
+MaxEmptyLinesToKeep: 2
+SpaceAfterControlStatementKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+#SpacesInSquareBrackets: false
+UseTab: Never
+ConstructorInitializerIndentWidth: 2
+AccessModifierOffset: -4
+
+
+# Comments
+AlignTrailingComments: true
+CommentPragmas: '!Api.*'

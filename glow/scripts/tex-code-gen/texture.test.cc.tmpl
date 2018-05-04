@@ -1,0 +1,33 @@
+// This file is auto-generated and should not be modified directly.
+\#include "tests.hh"
+
+\#include <glm/glm.hpp>
+
+\#include <glow/objects/${class}.hh>
+
+GLOW_TEST(${class}, Binding)
+{
+    auto tex0 = ${class}::create();
+    ASSERT_EQ(${class}::getCurrentTexture(), nullptr);
+
+    {
+        auto btex0 = tex0->bind();
+        ASSERT_EQ(${class}::getCurrentTexture(), &btex0);
+
+        auto tex1 = ${class}::create();
+        auto tex2 = ${class}::create();
+        ASSERT_EQ(${class}::getCurrentTexture(), &btex0);
+
+        {
+            auto btex1 = tex1->bind();
+            ASSERT_EQ(${class}::getCurrentTexture(), &btex1);
+
+            auto btex2 = tex2->bind();
+            ASSERT_EQ(${class}::getCurrentTexture(), &btex2);
+        }
+
+        ASSERT_EQ(${class}::getCurrentTexture(), &btex0);
+    }
+
+    ASSERT_EQ(${class}::getCurrentTexture(), nullptr);
+}

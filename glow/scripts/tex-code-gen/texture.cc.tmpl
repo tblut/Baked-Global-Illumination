@@ -1,0 +1,771 @@
+// This file is auto-generated and should not be modified directly.
+\#include "${class}.hh"
+
+\#include <glm/glm.hpp>
+\#include <glm/ext.hpp>
+
+\#include "glow/data/SurfaceData.hh"
+\#include "glow/data/TextureData.hh"
+
+\#include "glow/glow.hh"
+\#include "glow/limits.hh"
+\#include "glow/common/runtime_assert.hh"
+\#include "glow/common/ogl_typeinfo.hh"
+\#include "glow/common/scoped_gl.hh"
+\#include "glow/common/thread_local.hh"
+
+using namespace glow;
+
+/// Currently bound buffer
+static GLOW_THREADLOCAL $class::Bound$class *sCurrentTexture = nullptr;
+
+$class::Bound$class *$class::getCurrentTexture()
+{
+    return sCurrentTexture;
+}
+
+#if $hasMipmaps
+bool $class::hasMipmapsEnabled() const
+{
+    switch (mMinFilter)
+    {
+    case GL_LINEAR_MIPMAP_LINEAR:
+    case GL_LINEAR_MIPMAP_NEAREST:
+    case GL_NEAREST_MIPMAP_LINEAR:
+    case GL_NEAREST_MIPMAP_NEAREST:
+        return true;
+
+    default:
+        return false;
+    }
+}
+#end if
+
+GLenum $class::getUniformType() const
+{
+    auto fmt = getInternalFormat();
+
+    if (isSignedIntegerInternalFormat(fmt))
+        return GL_INT_SAMPLER_$samplerSuffix;
+    else if (isUnsignedIntegerInternalFormat(fmt))
+        return GL_UNSIGNED_INT_SAMPLER_$samplerSuffix;
+#if $hasDepthTexture and not $isMultisample
+    else if (isDepthInternalFormat(fmt))
+        return mCompareMode == GL_NONE ? GL_SAMPLER_$samplerSuffix : GL_SAMPLER_${samplerSuffix}_SHADOW;
+#end if
+    else
+        return GL_SAMPLER_$samplerSuffix;
+}
+
+$class::$class (GLenum internalFormat)
+  : Texture($gltype, $glbindingtype, internalFormat)
+{
+}
+
+Shared$class $class::create(${sizeParameter}, GLenum internalFormat)
+{
+    auto tex = std::make_shared<$class>(internalFormat);
+    tex->bind().resize(${sizeParameterCall});
+    return tex;
+}
+
+#if $hasImmutable
+Shared$class $class::createStorageImmutable(${sizeParameter}, GLenum internalFormat#if $hasMipmaps#, int mipmapLevels#end if#)
+{
+    auto tex = std::make_shared<$class>(internalFormat);
+    tex->bind().makeStorageImmutable(${sizeParameterCall}, internalFormat#if $hasMipmaps#, mipmapLevels#end if#);
+    return tex;
+}
+#end if
+
+#if not $isMultisample
+Shared$class $class::createFromFile(const std::string &filename, ColorSpace colorSpace)
+{
+    auto t = createFromData(TextureData::createFromFile(filename, colorSpace));
+    t->setObjectLabel(filename);
+    return t;
+}
+
+Shared$class $class::createFromFile(const std::string &filename, GLenum internalFormat, ColorSpace colorSpace)
+{
+    auto t = createFromData(TextureData::createFromFile(filename, colorSpace), internalFormat);
+    t->setObjectLabel(filename);
+    return t;
+}
+
+Shared$class $class::createFromData(const SharedTextureData &data)
+{
+    if (!data)
+    {
+        error() << "$class::createFromData failed, no data provided";
+        return nullptr;
+    }
+
+    if (data->getPreferredInternalFormat() == GL_INVALID_ENUM)
+    {
+        error() << "$class::createFromData failed, no preferred internal format specified";
+        return nullptr;
+    }
+
+    auto tex = std::make_shared<$class>(data->getPreferredInternalFormat());
+    tex->bind().setData(data->getPreferredInternalFormat(), data);
+    return tex;
+}
+
+Shared$class $class::createFromData(const SharedTextureData &data, GLenum internalFormat)
+{
+    if (!data)
+    {
+        error() << "$class::createFromData failed, no data provided";
+        return nullptr;
+    }
+
+    auto tex = std::make_shared<$class>(internalFormat);
+    tex->bind().setData(internalFormat, data);
+    return tex;
+}
+#end if
+
+bool $class::Bound$class::isCurrent() const
+{
+    GLOW_RUNTIME_ASSERT(sCurrentTexture == this, "Currently bound FBO does NOT match represented Texture " << to_string(texture), return false);
+    return true;
+}
+
+#if $hasImmutable
+void $class::Bound$class::makeStorageImmutable(${sizeParameter}, GLenum internalFormat#if $hasMipmaps#, int mipmapLevels#end if#)
+{
+    if (!isCurrent())
+        return;
+
+    GLOW_RUNTIME_ASSERT(!texture->isStorageImmutable(), "Texture is already immutable " << to_string(texture), return );
+    checkValidGLOW();
+
+#if $hasMipmaps
+    if (mipmapLevels <= 0)
+#if $dims == 1
+        mipmapLevels = glm::floor(glm::log2((float)width)) + 1;
+#elif $dims == 2
+        mipmapLevels = glm::floor(glm::log2(glm::max((float)width, (float)height))) + 1;
+#elif $dims == 3
+        mipmapLevels = glm::floor(glm::log2(glm::max((float)width, glm::max((float)height, (float)depth)))) + 1;
+#else
+\#error "not implemented"
+#end if
+
+#end if
+    texture->mStorageImmutable = true;
+    texture->mInternalFormat = internalFormat;
+#for $s in $sizeMemberVars
+    texture->m$s[0] = $s[1];
+#end for
+    glTexStorage${storageDim}D(texture->mTarget, #if $hasMipmaps then "mipmapLevels" else "1"#, internalFormat, ${sizeParameterCall});
+}
+#end if
+
+#if $hasTexParams
+void $class::Bound$class::setMinFilter(GLenum filter)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+#if not $hasMipmaps
+    auto corrected = false;
+    switch (filter) {
+        case GL_NEAREST_MIPMAP_NEAREST:
+        case GL_NEAREST_MIPMAP_LINEAR:
+            filter = GL_NEAREST;
+            corrected = true;
+            break;
+        case GL_LINEAR_MIPMAP_NEAREST:
+        case GL_LINEAR_MIPMAP_LINEAR:
+            filter = GL_LINEAR;
+            corrected = true;
+            break;
+    }
+    if (corrected)
+        warning() << "$class does not support MipMapping. " << to_string(texture);
+#end if
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_MIN_FILTER, filter);
+    texture->mMinFilter = filter;
+}
+
+void $class::Bound$class::setMagFilter(GLenum filter)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_MAG_FILTER, filter);
+    texture->mMagFilter = filter;
+}
+
+void $class::Bound$class::setFilter(GLenum magFilter, GLenum minFilter)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(texture->mTarget, GL_TEXTURE_MAG_FILTER, magFilter);
+    texture->mMinFilter = minFilter;
+    texture->mMagFilter = magFilter;
+}
+
+void $class::Bound$class::setAnisotropicFiltering(GLfloat samples)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    samples = glm::clamp(samples, 1.f, limits::maxAnisotropy);
+    glTexParameterf(texture->mTarget, GL_TEXTURE_MAX_ANISOTROPY_EXT, samples);
+    texture->mAnisotropicFiltering = samples;
+}
+
+void $class::Bound$class::setBorderColor(glm::vec4 const& color)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameterfv(texture->mTarget, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(color));
+    texture->mBorderColor = color;
+}
+
+#for $C in $texCoords
+void $class::Bound$class::setWrap${C}(GLenum wrap)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_WRAP_${C}, wrap);
+    texture->mWrap${C} = wrap;
+}
+#end for
+
+void $class::Bound$class::setWrap(#echo ", ".join(["GLenum wrap" + C for C in $texCoords]) #)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+#for $C in $texCoords
+    glTexParameteri(texture->mTarget, GL_TEXTURE_WRAP_${C}, wrap${C});
+    texture->mWrap${C} = wrap${C};
+#end for
+}
+
+#if $hasDepthTexture
+void $class::Bound$class::setCompareMode(GLenum mode)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_COMPARE_MODE, mode);
+    texture->mCompareMode = mode;
+}
+
+void $class::Bound$class::setCompareFunc(GLenum func)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_COMPARE_FUNC, func);
+    texture->mCompareFunc = func;
+}
+
+void $class::Bound$class::setDepthStencilMode(GLenum mode)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_DEPTH_STENCIL_TEXTURE_MODE, mode);
+    texture->mDepthStencilMode = mode;
+}
+#end if
+#end if
+
+#if $hasMipmaps
+void $class::Bound$class::generateMipmaps()
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glGenerateMipmap(texture->mTarget);
+    texture->mMipmapsGenerated = true;
+}
+
+void $class::Bound$class::setLodBias(float bias)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameterf(texture->mTarget, GL_TEXTURE_LOD_BIAS, bias);
+    texture->mLodBias = bias;
+}
+
+void $class::Bound$class::setBaseLevel(int lvl)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_BASE_LEVEL, lvl);
+    texture->mBaseLevel = lvl;
+}
+
+void $class::Bound$class::setMaxLevel(int lvl)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameteri(texture->mTarget, GL_TEXTURE_MAX_LEVEL, lvl);
+    texture->mMaxLevel = lvl;
+}
+
+void $class::Bound$class::setMinLod(float lvl)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameterf(texture->mTarget, GL_TEXTURE_MIN_LOD, lvl);
+    texture->mMinLod = lvl;
+}
+
+void $class::Bound$class::setMaxLod(float lvl)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    glTexParameterf(texture->mTarget, GL_TEXTURE_MAX_LOD, lvl);
+    texture->mMaxLod = lvl;
+}
+#end if
+
+void $class::Bound$class::resize(${sizeParameter})
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+#if $hasImmutable
+    GLOW_RUNTIME_ASSERT(!texture->isStorageImmutable(), "Texture is storage immutable " << to_string(texture), return );
+#end if
+
+#for $s in $sizeMemberVars
+    texture->m$s[0] = $s[1];
+#end for
+
+#if not $isMultisample and not $buffer
+    GLenum format = GL_RGBA;
+    auto isIntegerFormat = isIntegerInternalFormat(texture->mInternalFormat);
+    switch (channelsOfInternalFormat(texture->mInternalFormat))
+    {
+    case 1:
+        format = isIntegerFormat ? GL_RED_INTEGER : GL_RED;
+        break;
+    case 2:
+        format = isIntegerFormat ? GL_RG_INTEGER : GL_RG;
+        break;
+    case 3:
+        format = isIntegerFormat ? GL_RGB_INTEGER : GL_RGB;
+        break;
+    case 4:
+        format = isIntegerFormat ? GL_RGBA_INTEGER : GL_RGBA;
+        break;
+    }
+    switch (texture->mInternalFormat)
+    {
+    case GL_DEPTH_COMPONENT:
+    case GL_DEPTH_COMPONENT16:
+    case GL_DEPTH_COMPONENT24:
+    case GL_DEPTH_COMPONENT32:
+    case GL_DEPTH_COMPONENT32F:
+        format = GL_DEPTH_COMPONENT;
+        break;
+    }
+#end if
+
+#if $buffer
+    warning() << "not implemented. " << to_string(texture);
+#elif $cubemap and not $array
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage${storageDim}D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, texture->mInternalFormat, ${sizeParameterCall}, 0, format, GL_UNSIGNED_BYTE, nullptr);
+#else
+#if $isMultisample
+    auto const samples = 4; // TODO: configurable
+    auto const fixedSampleLocs = GL_FALSE; // TODO: configurable
+    glTexImage${storageDim}DMultisample(texture->mTarget, samples, texture->mInternalFormat, ${sizeParameterCall}, fixedSampleLocs);
+#else
+    glTexImage${storageDim}D(texture->mTarget, 0, texture->mInternalFormat, ${sizeParameterCall}#if $cubemap and $array# * 6u#end if#, 0, format, GL_UNSIGNED_BYTE, nullptr);
+#end if
+#end if
+
+#if $hasMipmaps
+    texture->mMipmapsGenerated = false;
+#end if
+}
+
+#if not $isMultisample
+void $class::Bound$class::setData(GLenum internalFormat#if $cubemap #, GLenum target#end if #, ${sizeParameter}, GLenum format, GLenum type, const GLvoid *data#if $hasMipmaps #, int mipmapLevel#end if #)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+#if $hasImmutable
+    if (texture->isStorageImmutable())
+    {
+#if $hasMipmaps
+        assert(mipmapLevel == 0 && "not implemented for higher levels");
+#end if
+#for $s in $sizeMemberVars
+        GLOW_RUNTIME_ASSERT(texture->m$s[0] == $s[1], "Texture is storage immutable and a wrong $s[1] was specified " << to_string(texture), return );
+#end for
+        GLOW_RUNTIME_ASSERT(texture->mInternalFormat == internalFormat,
+                            "Texture is storage immutable and a wrong internal format was specified " << to_string(texture), return );
+    }
+#end if
+
+#if $hasMipmaps
+    if (mipmapLevel == 0)
+    {
+#for $s in $sizeMemberVars
+    texture->m$s[0] = $s[1];
+#end for
+        texture->mMipmapsGenerated = false;
+        texture->mInternalFormat = internalFormat;
+    }
+#else
+#for $s in $sizeMemberVars
+    texture->m$s[0] = $s[1];
+#end for
+    texture->mInternalFormat = internalFormat;
+#end if
+
+    // assure proper pixel store parameter
+    scoped::unpackSwapBytes   _p0(false);
+    scoped::unpackLsbFirst    _p1(false);
+    scoped::unpackRowLength   _p2(0);
+    scoped::unpackImageHeight _p3(0);
+    scoped::unpackSkipRows    _p4(0);
+    scoped::unpackSkipPixels  _p5(0);
+    scoped::unpackSkipImages  _p6(0);
+    scoped::unpackAlignment   _p7(1); // tight
+
+    if (texture->isStorageImmutable())
+        glTexSubImage${storageDim}D(#if $cubemap #target#else#texture->mTarget#end if #, #if $hasMipmaps then "mipmapLevel" else "0"#, ${sizeZeroCall}, ${sizeParameterCall}, format, type, data);
+    else
+        glTexImage${storageDim}D(#if $cubemap #target#else#texture->mTarget#end if #, #if $hasMipmaps then "mipmapLevel" else "0"#, texture->mInternalFormat, ${sizeParameterCall}, 0, format, type, data);
+}
+
+void $class::Bound$class::setSubData(#if $cubemap #GLenum target, #end if #${offsetParameter}, ${sizeParameter}, GLenum format, GLenum type, const GLvoid *data#if $hasMipmaps #, int mipmapLevel#end if #)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    // assure proper pixel store parameter
+    scoped::unpackSwapBytes   _p0(false);
+    scoped::unpackLsbFirst    _p1(false);
+    scoped::unpackRowLength   _p2(0);
+    scoped::unpackImageHeight _p3(0);
+    scoped::unpackSkipRows    _p4(0);
+    scoped::unpackSkipPixels  _p5(0);
+    scoped::unpackSkipImages  _p6(0);
+    scoped::unpackAlignment   _p7(1); // tight
+
+    glTexSubImage${storageDim}D(#if $cubemap #target#else#texture->mTarget#end if #, #if $hasMipmaps then "mipmapLevel" else "0"#, ${offsetParameterCall}, ${sizeParameterCall}, format, type, data);
+ }
+
+void $class::Bound$class::setData(GLenum internalFormat, const SharedTextureData &data)
+{
+    if (!isCurrent())
+        return;
+
+    texture->mInternalFormat = internalFormat; // format first, then resize
+    resize(#echo ", ".join(["data->get" + S + "()" for S in $sizeDataMember]) #);
+
+    // set all level 0 surfaces
+    for (auto const &surf : data->getSurfaces())
+        if (surf->getMipmapLevel() == 0)
+            setSubData(#if $cubemap #surf->getTarget(), #end if ##echo ", ".join(["surf->get" + S + "()" for S in $offsetDataMember]) #,
+                       #echo ", ".join(["surf->get" + S + "()" for S in $sizeDataMember]) #,
+                       surf->getFormat(), surf->getType(),
+                       surf->getData().data()#if $hasMipmaps #, surf->getMipmapLevel()#end if#);
+
+#if $hasTexParams
+    // set parameters
+    if (data->getAnisotropicFiltering() >= 1.f)
+        setAnisotropicFiltering(data->getAnisotropicFiltering());
+    if (data->getMinFilter() != GL_INVALID_ENUM)
+        setMinFilter(data->getMinFilter());
+    if (data->getMagFilter() != GL_INVALID_ENUM)
+        setMagFilter(data->getMagFilter());
+#if not $cubemap
+#for $C in $texCoords
+    if (data->getWrap${C}() != GL_INVALID_ENUM)
+        setWrap${C}(data->getWrap${C}());
+#end for
+#end if
+#end if
+
+#if $hasMipmaps
+    // generate mipmaps
+    if (texture->hasMipmapsEnabled())
+        generateMipmaps();
+
+    // set all level 1+ surfaces
+    for (auto const &surf : data->getSurfaces())
+        if (surf->getMipmapLevel() > 0)
+            setSubData(#if $cubemap #surf->getTarget(), #end if ##echo ", ".join(["surf->get" + S + "()" for S in $offsetDataMember]) #,
+                       #echo ", ".join(["surf->get" + S + "()" for S in $sizeDataMember]) #,
+                       surf->getFormat(), surf->getType(),
+                       surf->getData().data()#if $hasMipmaps #, surf->getMipmapLevel()#end if#);
+#end if
+}
+
+#if not $buffer
+void $class::clear(GLenum format, GLenum type, const GLvoid* data#if $hasMipmaps #, int mipmapLevel#end if #)
+{
+    checkValidGLOW();
+\#if GLOW_OPENGL_VERSION >= 44
+
+    if (OGLVersion.total < 44)
+    {
+        glow::warning() << "Using fallback for Texture::clear because OpenGL Version is lower than 4.4.";
+        glow::warning() << "  This has (severe) performance implications (see #43) " << to_string(this);
+
+#if $hasClearWorkaround
+        // assemble img
+        std::vector<uint8_t> rawdata;
+        int stride = channelsOfFormat(format) * sizeOfTypeInBytes(type);
+        int w = mWidth;
+        int h = mHeight;
+#if $hasMipmaps
+        w = glm::max(1, w >> mipmapLevel);
+        h = glm::max(1, h >> mipmapLevel);
+#end if
+        rawdata.resize(stride * w * h);
+        auto bdata = (uint8_t const *)data;
+        for (auto i = 0; i < w * h; ++i)
+            std::copy(bdata, bdata + stride, rawdata.data() + i * stride);
+
+        // upload
+        bind().setData(getInternalFormat(), w, h, format, type, rawdata.data()#if $hasMipmaps then ", mipmapLevel" else ""#);
+
+#else
+        glow::error() << "Not implemented. " << to_string(this);
+#end if
+    }
+    else
+    {
+        glClearTexImage(mObjectName, #if $hasMipmaps then "mipmapLevel" else "0"#, format, type, data);
+    }
+\#else
+    error() << "$class::clear is only supported for OpenGL 4.4+ " << to_string(this);
+\#endif
+#if $hasMipmaps
+    mMipmapsGenerated = false;
+#end if
+}
+#end if
+
+std::vector<char> $class::Bound$class::getData(GLenum format, GLenum type#if $hasMipmaps #, int mipmapLevel#end if #)
+{
+    if (!isCurrent())
+        return {};
+    checkValidGLOW();
+
+    auto target = #if $cubemap #GL_TEXTURE_CUBE_MAP_POSITIVE_X#else#texture->mTarget#end if#;
+
+    size_t dataSize = channelsOfFormat(format) * sizeOfTypeInBytes(type);
+
+#for $S in $sizeDataMember
+    GLint s$S;
+    glGetTexLevelParameteriv(target, #if $hasMipmaps then "mipmapLevel" else "0"#, GL_TEXTURE_#echo $S.upper()#, &s$S);
+    dataSize *= s$S;
+
+#end for
+    std::vector<char> data(dataSize);
+    getData(format, type, data.size(), data.data()#if $hasMipmaps #, mipmapLevel#end if #);
+    return data;
+}
+
+void $class::Bound$class::getData(GLenum format, GLenum type, size_t bufferSize, void *buffer#if $hasMipmaps #, int mipmapLevel#end if #)
+{
+    if (!isCurrent())
+        return;
+    checkValidGLOW();
+
+    // assure proper pixel store parameter
+    scoped::packSwapBytes   _p0(false);
+    scoped::packLsbFirst    _p1(false);
+    scoped::packRowLength   _p2(0);
+    scoped::packImageHeight _p3(0);
+    scoped::packSkipRows    _p4(0);
+    scoped::packSkipPixels  _p5(0);
+    scoped::packSkipImages  _p6(0);
+    scoped::packAlignment   _p7(1); // tight
+
+    (void)bufferSize; // TODO: check me!
+    glGetTexImage(texture->mTarget, #if $hasMipmaps then "mipmapLevel" else "0"#, format, type, buffer);
+}
+
+SharedTextureData ${class}::Bound${class}::getTextureData(#if $hasMipmaps#int maxMipLevel#end if#)
+{
+    if (!isCurrent())
+        return nullptr;
+    checkValidGLOW();
+
+    // assure proper pixel store parameter
+    scoped::packSwapBytes   _p0(false);
+    scoped::packLsbFirst    _p1(false);
+    scoped::packRowLength   _p2(0);
+    scoped::packImageHeight _p3(0);
+    scoped::packSkipRows    _p4(0);
+    scoped::packSkipPixels  _p5(0);
+    scoped::packSkipImages  _p6(0);
+    scoped::packAlignment   _p7(1); // tight
+
+    auto tex = std::make_shared<TextureData>();
+
+    // format
+    GLenum format = GL_RGBA;
+    GLenum type = GL_UNSIGNED_BYTE; // TODO: 16bit, 32bit types
+    size_t bytesPerTexel = 4;
+    auto isIntegerFormat = isIntegerInternalFormat(texture->mInternalFormat);
+    switch (channelsOfInternalFormat(texture->mInternalFormat))
+    {
+    case 1:
+        format = isIntegerFormat ? GL_RED_INTEGER : GL_RED;
+        bytesPerTexel = 1;
+        break;
+    case 2:
+        format = isIntegerFormat ? GL_RG_INTEGER : GL_RG;
+        bytesPerTexel = 2;
+        break;
+    case 3:
+        format = isIntegerFormat ? GL_RGB_INTEGER : GL_RGB;
+        bytesPerTexel = 3;
+        break;
+    case 4:
+        format = isIntegerFormat ? GL_RGBA_INTEGER : GL_RGBA;
+        bytesPerTexel = 4;
+        break;
+    }
+
+    // tex parameters
+    // TODO
+
+    // surfaces
+#if $cubemap#
+    for (auto target = GL_TEXTURE_CUBE_MAP_POSITIVE_X; target <= GL_TEXTURE_CUBE_MAP_NEGATIVE_Z; ++target)
+#else
+    auto target = texture->mTarget;
+#end if
+#if $hasMipmaps#
+    for (auto lvl = 0; lvl <= maxMipLevel; ++lvl)
+    {
+#else
+    {
+        auto lvl = 0;
+#end if
+        GLint w;
+        GLint h;
+        GLint d;
+        GLenum internalFormat;
+        glGetTexLevelParameteriv(target, lvl, GL_TEXTURE_WIDTH, &w);
+        glGetTexLevelParameteriv(target, lvl, GL_TEXTURE_HEIGHT, &h);
+        glGetTexLevelParameteriv(target, lvl, GL_TEXTURE_DEPTH, &d);
+        glGetTexLevelParameteriv(target, lvl, GL_TEXTURE_INTERNAL_FORMAT, (GLint *)&internalFormat);
+
+#if $hasMipmaps#
+        if (w * h * d == 0)
+            break; // no mipmaps any more
+
+        if (lvl == 0)
+#end if
+        {
+            tex->setWidth(w);
+            tex->setHeight(h);
+            tex->setDepth(d);
+            tex->setPreferredInternalFormat(internalFormat);
+        }
+
+        auto surface = std::make_shared<SurfaceData>();
+        surface->setWidth(w);
+        surface->setHeight(h);
+        surface->setDepth(d);
+#if $hasMipmaps#
+        surface->setMipmapLevel(lvl);
+#end if
+#if $cubemap
+        surface->setTarget(target);
+#end if
+
+        surface->setFormat(format);
+        surface->setType(type);
+
+        std::vector<char> data;
+        data.resize(bytesPerTexel * w * h * d);
+        glGetTexImage(target, lvl, surface->getFormat(), surface->getType(), data.data());
+        surface->setData(data);
+
+        tex->addSurface(surface);
+    }
+
+    return tex;
+}
+
+void ${class}::Bound${class}::writeToFile(const std::string &filename)
+{
+    getTextureData()->saveToFile(filename);
+}
+
+#end if
+
+$class::Bound$class::Bound$class ($class *texture) : texture(texture)
+{
+    checkValidGLOW();
+    glGetIntegerv(texture->mBindingTarget, &previousTexture);
+    glActiveTexture(GL_TEXTURE0 + limits::maxCombinedTextureImageUnits - 1);
+    glBindTexture(texture->mTarget, texture->mObjectName);
+
+    previousTexturePtr = sCurrentTexture;
+    sCurrentTexture = this;
+}
+
+$class::Bound$class::Bound$class ($class::Bound$class &&rhs)
+  : texture(rhs.texture), previousTexture(rhs.previousTexture), previousTexturePtr(rhs.previousTexturePtr)
+{
+    // invalidate rhs
+    rhs.previousTexture = -1;
+}
+
+$class::Bound$class::~Bound$class ()
+{
+    if (previousTexture != -1) // if valid
+    {
+        checkValidGLOW();
+        glActiveTexture(GL_TEXTURE0 + limits::maxCombinedTextureImageUnits - 1);
+        glBindTexture(texture->mTarget, previousTexture);
+        sCurrentTexture = previousTexturePtr;
+    }
+}

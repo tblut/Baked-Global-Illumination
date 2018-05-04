@@ -1,0 +1,57 @@
+Thanks for Downloading this FREE pakage, I hope you are going to have as much fun building your interiors, as I had compiling this package.
+
+Please would you take aa minte and STAR rate the package and possibly write aa review of what you found when you opened the package.
+
+Mobile & Desktop:
+The textures sheets has intuative atlas textures usage with a huge amount of prefabs reading of each textures sheet.
+The groupig was done if such a way that say all the wooden furniture can be used with another project a with eaze.
+This will assit with lowered draw calls aspecially when using Static Batching or MeshCombine functions.
+
+Also, all the screenshots and DEMOS that you have seen has been achieved with a Diffuse map only,
+so no funnies that a mobile device might not be able to display.
+
+The scenes that was used for the screenshots are all inside the Demo Scenes directory.
+
+                            ****
+
+UPDATE 1.3
+
+A user request for a full proper forge environment fullfilled
+
+NEW additions:
+
+- Blacksmith's Forge demo scene
+- 106 new meshes
+- 112 new prefabs
+
+
+other planned updates includes
+
+- Castles & Cathedrals
+- Catacombs & Crypts
+- Taverns & Inns
+
+                            ****
+
+The particle effect are easy to use drag & drop prefabs.
+
+Send some screenshots to info@3dforge.co.za of your work and I will showcase them on the website
+
+Grid system:
+The tiles/walls/floors have been done with a 2,5 x 2,5 x 3 units grid size.
+
+Doors:
+The door items have been exported with the Y Axis being the rotational axis.
+
+Roofs:
+I used the floor prefabs, just grab the whole bunch, rotate and vertice-snap them into place.
+
+I would like to invite users to email me there scenes files that they proud of,
+they are tiny and I will have a look at them and include them in futiure updates.
+Permission to have me use them as I see fit would have to be included in the email.
+
+Credit would be given to creators.
+
+Enjoy
+Cobus
+info@3dforge.co.za

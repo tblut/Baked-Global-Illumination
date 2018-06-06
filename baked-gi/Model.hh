@@ -1,3 +1,5 @@
+#pragma once
+
 #include <glow/fwd.hh>
 #include <glow/objects/Program.hh>
 
@@ -8,7 +10,7 @@
 class Model {
 public:
 	void loadFromFile(const std::string& path, const std::string& texturesPath);
-	void render(glow::Program::UsedProgram& shader) const;
+	void render(glow::Program::UsedProgram& shader, bool texturedPass) const;
 
 private:
 	struct Mesh {
@@ -22,4 +24,5 @@ private:
 
 	std::unordered_map<std::string, glow::SharedTexture2D> textures;
 	std::vector<Mesh> meshes;
+	glow::SharedTexture2D defaultNormalMap;
 };

@@ -23,6 +23,10 @@ static glm::vec3 aiCast(aiVector3D const& v) {
 	return { v.x, v.y, v.z };
 }
 
+static glm::vec3 aiCast(aiColor3D const& v) {
+	return { v.r, v.g, v.b };
+}
+
 static glm::vec4 aiCast(aiColor4D const& v) {
 	return { v.r, v.g, v.b, v.a };
 }
@@ -108,29 +112,25 @@ void Model::loadFromFile(const std::string& path, const std::string& texturesPat
 		
 		std::vector<SharedArrayBuffer> abs;
 
-		if (!positions.empty())
-		{
+		if (!positions.empty()) {
 			auto ab = ArrayBuffer::create();
 			ab->defineAttribute<glm::vec3>("aPosition");
 			ab->bind().setData(positions);
 			abs.push_back(ab);
 		}
-		if (!normals.empty())
-		{
+		if (!normals.empty()) {
 			auto ab = ArrayBuffer::create();
 			ab->defineAttribute<glm::vec3>("aNormal");
 			ab->bind().setData(normals);
 			abs.push_back(ab);
 		}
-		if (!tangents.empty())
-		{
+		if (!tangents.empty()) {
 			auto ab = ArrayBuffer::create();
 			ab->defineAttribute<glm::vec3>("aTangent");
 			ab->bind().setData(tangents);
 			abs.push_back(ab);
 		}
-		if (!texCoords.empty())
-		{
+		if (!texCoords.empty()) {
 			auto ab = ArrayBuffer::create();
 			ab->defineAttribute<glm::vec2>("aTexCoord");
 			ab->bind().setData(texCoords);
@@ -161,10 +161,7 @@ void Model::loadFromFile(const std::string& path, const std::string& texturesPat
 				textures.insert(std::make_pair(path, diffuseTexture));
 			}
 		}
-		else {
-			diffuseTexture = diffuseTexture = Texture2D::createFromFile(glow::util::pathOf(__FILE__) + "/textures/white.png", ColorSpace::sRGB);
-		}
-
+		
 		SharedTexture2D normalTexture;
 		if (material->GetTextureCount(aiTextureType_NORMALS) > 0) {
 			aiString tempPath;
@@ -179,21 +176,40 @@ void Model::loadFromFile(const std::string& path, const std::string& texturesPat
 				textures.insert(std::make_pair(path, normalTexture));
 			}
 		}
-		else {
-			normalTexture = Texture2D::createFromFile(glow::util::pathOf(__FILE__) + "/textures/blue.png", ColorSpace::Linear);
+
+		if (diffuseTexture && !normalTexture) {
+			if (!defaultNormalMap) {
+				defaultNormalMap = Texture2D::createFromFile(glow::util::pathOf(__FILE__) + "/textures/blue.png", ColorSpace::Linear);
+			}
+			normalTexture = defaultNormalMap;
 		}
 
-		meshes.push_back({ va, diffuseTexture, normalTexture });
+		aiColor3D baseColor(1, 1, 1);
+		material->Get(AI_MATKEY_COLOR_DIFFUSE, baseColor);
+
+		float shininess = 1.0f;
+		material->Get(AI_MATKEY_SHININESS, shininess);
+		float roughness = std::max(0.0f, 1.0f - shininess / 1000.0f);
+
+		meshes.push_back({ va, diffuseTexture, normalTexture, roughness, 0.0f, aiCast(baseColor) });
 	}
 }
 
-void Model::render(Program::UsedProgram& shader) const {
+void Model::render(Program::UsedProgram& shader, bool texturedPass) const {
 	for (auto& mesh : meshes) {
+		if (texturedPass && !mesh.colorMap) {
+			continue;
+		}
+
 		shader.setUniform("uBaseColor", mesh.baseColor);
 		shader.setUniform("uMetallic", mesh.metallic);
 		shader.setUniform("uRoughness", mesh.roughness);
-		shader.setTexture("uTextureColor", mesh.colorMap);
-		shader.setTexture("uTextureNormal", mesh.normalMap);
+
+		if (texturedPass) {
+			shader.setTexture("uTextureColor", mesh.colorMap);
+			shader.setTexture("uTextureNormal", mesh.normalMap);
+		}
+
 		mesh.vao->bind().draw();
 	}
 }

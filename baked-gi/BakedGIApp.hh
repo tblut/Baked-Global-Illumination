@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Model.hh"
 
 #include <glm/ext.hpp>
@@ -17,6 +19,7 @@ private:
 	glow::SharedFramebuffer blurFboB;
 
 	glow::SharedProgram objectShader;
+	glow::SharedProgram objectNoTexShader;
 	glow::SharedProgram skyboxShader;
 	glow::SharedProgram downsampleShader;
 	glow::SharedProgram blurShader;
@@ -35,7 +38,7 @@ private:
 	float metallic = 0.8f;
 	glm::vec3 ambientColor = glm::vec3(0.01f);
 	glm::vec3 lightDir = glm::vec3(1, -5, -2);
-	glm::vec3 lightColor = glm::vec3(1.5f);
+	glm::vec3 lightColor = glm::vec3(1.0f, 0.9f, 0.8f);
 
 	Model model;
 

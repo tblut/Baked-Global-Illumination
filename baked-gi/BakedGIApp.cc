@@ -15,15 +15,19 @@
 #include <glow-extras/assimp/Importer.hh>
 #include <AntTweakBar.h>
 
+#include <embree3/rtcore.h>
+#include "tinygltf/tiny_gltf.h"
+
 void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
 
 	std::string workDir = glow::util::pathOf(__FILE__);
-	objectShader = glow::Program::createFromFile(workDir + "/shaders/object");
-	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/skybox");
-	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/fullscreen.vsh", workDir + "/shaders/downsample.fsh" });
-	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/fullscreen.vsh", workDir + "/shaders/blur.fsh" });
-	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/fullscreen.vsh", workDir + "/shaders/postprocess.fsh" });
+	objectShader = glow::Program::createFromFile(workDir + "/shaders/Object");
+	objectNoTexShader = glow::Program::createFromFile(workDir + "/shaders/ObjectNoTex");
+	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/Skybox");
+	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
+	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
+	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
 	vertexArray = glow::geometry::UVSphere<>().generate();
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
@@ -64,7 +68,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Metallic", TW_TYPE_FLOAT, &metallic, "group=shading step=0.01 min=0.00 max=1.0");
 
 	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/kitchen/Country-Kitchen.obj", glow::util::pathOf(__FILE__) + "/models/kitchen/Textures/");
-	model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/Forge.fbx", glow::util::pathOf(__FILE__) + "/models/3DForge/Fantasy_Interiors/Villages_&_Towns/Textures/");
+	model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/living_room/living_room.obj", glow::util::pathOf(__FILE__) + "/models/living_room/textures/");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
@@ -74,26 +78,33 @@ void BakedGIApp::render(float elapsedSeconds) {
 		
 		GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(enable, GL_CULL_FACE);
-		GLOW_SCOPED(clearColor, 0, 0, 0, 1);
+		GLOW_SCOPED(clearColor, 1, 1, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		{ // Render objects
+		{ // Render objects with textures
 			auto p = objectShader->use();
 			p.setUniform("uView", cam->getViewMatrix());
 			p.setUniform("uProj", cam->getProjectionMatrix());
 			p.setUniform("uModel", glm::mat4(1.0f));
 			p.setUniform("uCamPos", cam->getPosition());
-			p.setUniform("uBaseColor", baseColor);
-			p.setUniform("uMetallic", metallic);
-			p.setUniform("uRoughness", roughness);
 			p.setUniform("uAmbientColor", ambientColor);
 			p.setUniform("uLightDir", lightDir);
 			p.setUniform("uLightColor", lightColor);
-			p.setTexture("uTextureColor", textureColor);
-			p.setTexture("uTextureNormal", textureNormal);
 
-			//vertexArray->bind().draw();
-			model.render(p);
+			//model.render(p, true);
+		}
+
+		{ // Render objects without textures
+			auto p = objectNoTexShader->use();
+			p.setUniform("uView", cam->getViewMatrix());
+			p.setUniform("uProj", cam->getProjectionMatrix());
+			p.setUniform("uModel", glm::mat4(1.0f));
+			p.setUniform("uCamPos", cam->getPosition());
+			p.setUniform("uAmbientColor", ambientColor);
+			p.setUniform("uLightDir", lightDir);
+			p.setUniform("uLightColor", lightColor);
+
+			//model.render(p, false);
 		}
 
 		{ // Render skybox
@@ -108,7 +119,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 			p.setUniform("uProj", cam->getProjectionMatrix());
 			p.setTexture("uSkybox", skybox);
 
-			vaoCube->bind().draw();
+			//vaoCube->bind().draw();
 		}
 	}
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Mesh.hh"
+#include "DirectionalLight.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -15,8 +16,7 @@ public:
 	void resizeBuffers(int w, int h);
 
 	void setAmbientColor(const glm::vec3& color);
-	void setLightDirection(const glm::vec3& direction);
-	void setLightColor(const glm::vec3& color);
+	void setLight(const DirectionalLight& light);
 
 private:
 	glow::SharedTextureRectangle hdrColorBuffer;
@@ -44,7 +44,6 @@ private:
 	glow::SharedTexture2D textureNormal;
 	glow::SharedTextureCubeMap skybox;
 
-	glm::vec3 ambientColor = glm::vec3(0.01f);
-	glm::vec3 lightDir = glm::vec3(1, -5, -2);
-	glm::vec3 lightColor = glm::vec3(1.0f, 0.9f, 0.8f);
+	glm::vec3 ambientColor = glm::vec3(0.1f);
+	DirectionalLight light;
 };

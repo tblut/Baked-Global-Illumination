@@ -3,6 +3,7 @@
 #include "Material.hh"
 #include "Mesh.hh"
 #include "RenderPipeline.hh"
+#include "DirectionalLight.hh"
 
 #include <string>
 #include <vector>
@@ -14,4 +15,5 @@ public:
 
 private:
 	std::vector<Mesh> meshes;
+	DirectionalLight sun;
 };

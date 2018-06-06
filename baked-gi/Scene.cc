@@ -139,6 +139,45 @@ namespace {
 
 		return resultMat;
 	}
+
+	glm::mat4 getTransformForNode(const tinygltf::Node& node) {
+		glm::mat4 transform(1.0f);
+		if (node.matrix.size() > 0) {
+			const auto& m = node.matrix;
+			transform = glm::mat4(
+				static_cast<float>(m[0]), static_cast<float>(m[1]), static_cast<float>(m[2]), static_cast<float>(m[3]),
+				static_cast<float>(m[4]), static_cast<float>(m[5]), static_cast<float>(m[6]), static_cast<float>(m[7]),
+				static_cast<float>(m[8]), static_cast<float>(m[9]), static_cast<float>(m[10]), static_cast<float>(m[11]),
+				static_cast<float>(m[12]), static_cast<float>(m[13]), static_cast<float>(m[14]), static_cast<float>(m[15]));
+		}
+		else {
+			glm::vec3 translation(0.0f, 0.0f, 0.0f);
+			if (node.translation.size() > 0) {
+				translation.x = static_cast<float>(node.translation[0]);
+				translation.y = static_cast<float>(node.translation[1]);
+				translation.z = static_cast<float>(node.translation[2]);
+			}
+
+			glm::vec3 scale(1.0f, 1.0f, 1.0f);
+			if (node.scale.size() > 0) {
+				scale.x = static_cast<float>(node.scale[0]);
+				scale.y = static_cast<float>(node.scale[1]);
+				scale.z = static_cast<float>(node.scale[2]);
+			}
+
+			glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
+			if (node.rotation.size() > 0) {
+				rotation.x = static_cast<float>(node.rotation[0]);
+				rotation.y = static_cast<float>(node.rotation[1]);
+				rotation.z = static_cast<float>(node.rotation[2]);
+				rotation.w = static_cast<float>(node.rotation[3]);
+			}
+
+			transform = glm::translate(translation) * glm::mat4_cast(rotation) * glm::scale(scale);
+		}
+
+		return transform;
+	}
 }
 
 void Scene::loadFromGltf(const std::string& path) {
@@ -163,44 +202,11 @@ void Scene::loadFromGltf(const std::string& path) {
 		const auto& node = model.nodes[nodeIndex];
 
 		if (node.name == "Sun") {
-
+			glm::mat4 transform = getTransformForNode(node);
+			glm::vec3 direction = glm::vec3(0.0f, -1.0f, 0.0f);
+			sun.direction = glm::mat3(transform) * direction;
 		}
 		else if (node.mesh != -1) {
-			glm::mat4 transform(1.0f);
-			if (node.matrix.size() > 0) {
-				const auto& m = node.matrix;
-				transform = glm::mat4(
-					static_cast<float>(m[0]), static_cast<float>(m[1]), static_cast<float>(m[2]), static_cast<float>(m[3]),
-					static_cast<float>(m[4]), static_cast<float>(m[5]), static_cast<float>(m[6]), static_cast<float>(m[7]),
-					static_cast<float>(m[8]), static_cast<float>(m[9]), static_cast<float>(m[10]), static_cast<float>(m[11]),
-					static_cast<float>(m[12]), static_cast<float>(m[13]), static_cast<float>(m[14]), static_cast<float>(m[15]));
-			}
-			else {
-				glm::vec3 translation(0.0f, 0.0f, 0.0f);
-				if (node.translation.size() > 0) {
-					translation.x = static_cast<float>(node.translation[0]);
-					translation.y = static_cast<float>(node.translation[1]);
-					translation.z = static_cast<float>(node.translation[2]);
-				}
-
-				glm::vec3 scale(1.0f, 1.0f, 1.0f);
-				if (node.scale.size() > 0) {
-					scale.x = static_cast<float>(node.scale[0]);
-					scale.y = static_cast<float>(node.scale[1]);
-					scale.z = static_cast<float>(node.scale[2]);
-				}
-
-				glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
-				if (node.rotation.size() > 0) {
-					rotation.x = static_cast<float>(node.rotation[0]);
-					rotation.y = static_cast<float>(node.rotation[1]);
-					rotation.z = static_cast<float>(node.rotation[2]);
-					rotation.w = static_cast<float>(node.rotation[3]);
-				}
-
-				transform = glm::translate(translation) * glm::mat4_cast(rotation) * glm::scale(scale);
-			}
-
 			const auto& mesh = model.meshes[node.mesh];
 			for (const auto& primitive : mesh.primitives) {
 				std::vector<glow::SharedArrayBuffer> abs;
@@ -242,12 +248,13 @@ void Scene::loadFromGltf(const std::string& path) {
 					material = createMaterial(model.materials[primitive.material], model);
 				}
 
-				meshes.push_back({ va, material, transform });
+				meshes.push_back({ va, material, getTransformForNode(node) });
 			}
 		}
 	}
 }
 
 void Scene::render(const glow::camera::CameraBase& camera, RenderPipeline& pipeline) const {
+	pipeline.setLight(sun);
 	pipeline.render(camera, meshes);
 }

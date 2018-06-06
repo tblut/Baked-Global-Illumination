@@ -25,9 +25,9 @@ void BakedGIApp::init() {
 	cam->setPosition({ 2, 2, 2 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
-	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &lightColor, "group=light");
-	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &lightDir, "group=light");
+	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
+	//TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &lightColor, "group=light");
+	//TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &lightDir, "group=light");
 
 	pipeline = std::make_unique<RenderPipeline>();
 
@@ -37,9 +37,6 @@ void BakedGIApp::init() {
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
-	pipeline->setAmbientColor(ambientColor);
-	pipeline->setLightColor(lightColor);
-	pipeline->setLightDirection(lightDir);
 	scene.render(*getCamera(), *pipeline);
 }
 

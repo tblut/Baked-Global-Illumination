@@ -20,8 +20,4 @@ private:
 	//Model model;
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
-
-	glm::vec3 ambientColor = glm::vec3(0.01f);
-	glm::vec3 lightDir = glm::vec3(1, -5, -2);
-	glm::vec3 lightColor = glm::vec3(1.0f, 0.9f, 0.8f);
 };

@@ -13,6 +13,16 @@
 #include <glow-extras/geometry/Cube.hh>
 #include <glow-extras/camera/GenericCamera.hh>
 
+namespace {
+	glm::vec3 gammaToLinear(const glm::vec3& v) {
+		return { std::pow(v.x, 2.2f), std::pow(v.y, 2.2f) , std::pow(v.z, 2.2f) };
+	}
+
+	glm::vec3 linearToGamma(const glm::vec3& v) {
+		return { std::pow(v.x, 1.0f / 2.2f), std::pow(v.y, 1.0f / 2.2f) , std::pow(v.z, 1.0f / 2.2f) };
+	}
+}
+
 RenderPipeline::RenderPipeline() {
 	std::string workDir = glow::util::pathOf(__FILE__);
 	objectShader = glow::Program::createFromFile(workDir + "/shaders/Object");
@@ -66,11 +76,11 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uProj", cam.getProjectionMatrix());
 					p.setUniform("uModel", mesh.transform);
 					p.setUniform("uCamPos", cam.getPosition());
-					p.setUniform("uAmbientColor", ambientColor);
-					p.setUniform("uLightDir", lightDir);
-					p.setUniform("uLightColor", lightColor);
+					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+					p.setUniform("uLightDir", glm::normalize(-light.direction));
+					p.setUniform("uLightColor", gammaToLinear(light.color) * light.power);
 
-					p.setUniform("uBaseColor", mesh.material.baseColor);
+					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 					p.setUniform("uMetallic", mesh.material.metallic);
 					p.setUniform("uRoughness", mesh.material.roughness);
 					p.setTexture("uTextureColor", mesh.material.colorMap);
@@ -84,11 +94,11 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uProj", cam.getProjectionMatrix());
 					p.setUniform("uModel", mesh.transform);
 					p.setUniform("uCamPos", cam.getPosition());
-					p.setUniform("uAmbientColor", ambientColor);
-					p.setUniform("uLightDir", lightDir);
-					p.setUniform("uLightColor", lightColor);
+					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+					p.setUniform("uLightDir", glm::normalize(-light.direction));
+					p.setUniform("uLightColor", gammaToLinear(light.color) * light.power);
 
-					p.setUniform("uBaseColor", mesh.material.baseColor);
+					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 					p.setUniform("uMetallic", mesh.material.metallic);
 					p.setUniform("uRoughness", mesh.material.roughness);
 
@@ -164,10 +174,6 @@ void RenderPipeline::setAmbientColor(const glm::vec3& color) {
 	ambientColor = color;
 }
 
-void RenderPipeline::setLightDirection(const glm::vec3& direction) {
-	lightDir = direction;
-}
-
-void RenderPipeline::setLightColor(const glm::vec3& color) {
-	lightColor = color;
+void RenderPipeline::setLight(const DirectionalLight& light) {
+	this->light = light;
 }

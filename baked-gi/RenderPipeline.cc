@@ -64,7 +64,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					auto p = objectShader->use();
 					p.setUniform("uView", cam.getViewMatrix());
 					p.setUniform("uProj", cam.getProjectionMatrix());
-					p.setUniform("uModel", glm::mat4(1.0f));
+					p.setUniform("uModel", mesh.transform);
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", ambientColor);
 					p.setUniform("uLightDir", lightDir);
@@ -82,7 +82,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					auto p = objectNoTexShader->use();
 					p.setUniform("uView", cam.getViewMatrix());
 					p.setUniform("uProj", cam.getProjectionMatrix());
-					p.setUniform("uModel", glm::mat4(1.0f));
+					p.setUniform("uModel", mesh.transform);
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", ambientColor);
 					p.setUniform("uLightDir", lightDir);

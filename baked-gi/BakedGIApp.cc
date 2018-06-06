@@ -33,7 +33,7 @@ void BakedGIApp::init() {
 
 	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/kitchen/Country-Kitchen.obj", glow::util::pathOf(__FILE__) + "/models/kitchen/Textures/");
 	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/living_room/living_room.obj", glow::util::pathOf(__FILE__) + "/models/living_room/textures/");
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/monkey.gltf");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {

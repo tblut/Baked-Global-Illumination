@@ -2,6 +2,7 @@
 #include "tinygltf/tiny_gltf.h"
 
 #include <glow/fwd.hh>
+#include <glow/common/str_utils.hh>
 #include <glow/objects/ElementArrayBuffer.hh>
 #include <glow/objects/VertexArray.hh>
 #include <glow/objects/ArrayBuffer.hh>
@@ -144,7 +145,18 @@ void Scene::loadFromGltf(const std::string& path) {
 	tinygltf::TinyGLTF context;
 	tinygltf::Model model;
 	std::string error;
-	context.LoadASCIIFromFile(&model, &error, path);
+
+	std::string ending = glow::util::fileEndingOf(path);
+	if (ending == ".gltf") {
+		context.LoadASCIIFromFile(&model, &error, path);
+	}
+	else if (ending == ".glb") {
+		context.LoadBinaryFromFile(&model, &error, path);
+	}
+	else {
+		glow::error() << path << " is non a gltf file!";
+		return;
+	}
 
 	const auto& scene = model.scenes[model.defaultScene];
 	for (int nodeIndex : scene.nodes) {
@@ -154,6 +166,41 @@ void Scene::loadFromGltf(const std::string& path) {
 
 		}
 		else if (node.mesh != -1) {
+			glm::mat4 transform(1.0f);
+			if (node.matrix.size() > 0) {
+				const auto& m = node.matrix;
+				transform = glm::mat4(
+					static_cast<float>(m[0]), static_cast<float>(m[1]), static_cast<float>(m[2]), static_cast<float>(m[3]),
+					static_cast<float>(m[4]), static_cast<float>(m[5]), static_cast<float>(m[6]), static_cast<float>(m[7]),
+					static_cast<float>(m[8]), static_cast<float>(m[9]), static_cast<float>(m[10]), static_cast<float>(m[11]),
+					static_cast<float>(m[12]), static_cast<float>(m[13]), static_cast<float>(m[14]), static_cast<float>(m[15]));
+			}
+			else {
+				glm::vec3 translation(0.0f, 0.0f, 0.0f);
+				if (node.translation.size() > 0) {
+					translation.x = static_cast<float>(node.translation[0]);
+					translation.y = static_cast<float>(node.translation[1]);
+					translation.z = static_cast<float>(node.translation[2]);
+				}
+
+				glm::vec3 scale(1.0f, 1.0f, 1.0f);
+				if (node.scale.size() > 0) {
+					scale.x = static_cast<float>(node.scale[0]);
+					scale.y = static_cast<float>(node.scale[1]);
+					scale.z = static_cast<float>(node.scale[2]);
+				}
+
+				glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
+				if (node.rotation.size() > 0) {
+					rotation.x = static_cast<float>(node.rotation[0]);
+					rotation.y = static_cast<float>(node.rotation[1]);
+					rotation.z = static_cast<float>(node.rotation[2]);
+					rotation.w = static_cast<float>(node.rotation[3]);
+				}
+
+				transform = glm::translate(translation) * glm::mat4_cast(rotation) * glm::scale(scale);
+			}
+
 			const auto& mesh = model.meshes[node.mesh];
 			for (const auto& primitive : mesh.primitives) {
 				std::vector<glow::SharedArrayBuffer> abs;
@@ -187,12 +234,15 @@ void Scene::loadFromGltf(const std::string& path) {
 				glow::SharedElementArrayBuffer eab = createEABForAccessor(model.accessors[primitive.indices], model);
 				auto va = glow::VertexArray::create(abs, eab, primitive.mode);
 
+				Material material;
 				if (primitive.material == -1) {
-					glow::error() << path << " contains a primitive without a material. Not supported!";
+					glow::warning() << path << " contains a primitive without a material!";
 				}
-				
-				Material material = createMaterial(model.materials[primitive.material], model);
-				meshes.push_back({ va, material });
+				else {
+					material = createMaterial(model.materials[primitive.material], model);
+				}
+
+				meshes.push_back({ va, material, transform });
 			}
 		}
 	}

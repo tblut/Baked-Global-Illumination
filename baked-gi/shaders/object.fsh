@@ -36,7 +36,7 @@ void main() {
 
 	// Shading
 	vec3 V = normalize(uCamPos - vWorldPos);
-	vec3 L = normalize(-uLightDir);
+	vec3 L = uLightDir;
     fColor = uAmbientColor * color + shadingGGX(N, V, L, color, uRoughness, uMetallic) * uLightColor;
 
 	// Extract brightness for bloom

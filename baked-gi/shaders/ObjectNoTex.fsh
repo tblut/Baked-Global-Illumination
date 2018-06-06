@@ -17,7 +17,7 @@ uniform vec3 uLightColor;
 void main() {
 	vec3 N = normalize(vNormal);
 	vec3 V = normalize(uCamPos - vWorldPos);
-	vec3 L = normalize(-uLightDir);
+	vec3 L = uLightDir;
 
 	// Shading
 	fColor = uAmbientColor * uBaseColor + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;

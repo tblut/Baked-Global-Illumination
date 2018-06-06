@@ -1,4 +1,5 @@
 #include "Model.hh"
+#include "RenderPipeline.hh"
 
 #include <fstream>
 
@@ -195,21 +196,6 @@ void Model::loadFromFile(const std::string& path, const std::string& texturesPat
 	}
 }
 
-void Model::render(Program::UsedProgram& shader, bool texturedPass) const {
-	for (auto& mesh : meshes) {
-		if (texturedPass && !mesh.colorMap) {
-			continue;
-		}
-
-		shader.setUniform("uBaseColor", mesh.baseColor);
-		shader.setUniform("uMetallic", mesh.metallic);
-		shader.setUniform("uRoughness", mesh.roughness);
-
-		if (texturedPass) {
-			shader.setTexture("uTextureColor", mesh.colorMap);
-			shader.setTexture("uTextureNormal", mesh.normalMap);
-		}
-
-		mesh.vao->bind().draw();
-	}
+void Model::render(const glow::camera::CameraBase& camera, RenderPipeline& pipeline) const {
+	pipeline.render(camera, meshes);
 }

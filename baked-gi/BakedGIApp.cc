@@ -32,14 +32,15 @@ void BakedGIApp::init() {
 	pipeline = std::make_unique<RenderPipeline>();
 
 	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/kitchen/Country-Kitchen.obj", glow::util::pathOf(__FILE__) + "/models/kitchen/Textures/");
-	model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/living_room/living_room.obj", glow::util::pathOf(__FILE__) + "/models/living_room/textures/");
+	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/living_room/living_room.obj", glow::util::pathOf(__FILE__) + "/models/living_room/textures/");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/monkey.gltf");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setAmbientColor(ambientColor);
 	pipeline->setLightColor(lightColor);
 	pipeline->setLightDirection(lightDir);
-	model.render(*getCamera(), *pipeline);
+	scene.render(*getCamera(), *pipeline);
 }
 
 void BakedGIApp::onResize(int w, int h) {

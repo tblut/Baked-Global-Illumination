@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Model.hh"
+#include "Mesh.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
 #include <glow-extras/camera/CameraBase.hh>
+#include <vector>
 
 class RenderPipeline {
 public:

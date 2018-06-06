@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Material.hh"
+#include "Mesh.hh"
 
 #include <glow/fwd.hh>
 #include <glow-extras/camera/CameraBase.hh>
@@ -11,11 +12,6 @@
 #include <unordered_map>
 
 class RenderPipeline;
-
-struct Mesh {
-	glow::SharedVertexArray vao;
-	Material material;
-};
 
 class Model {
 public:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Model.hh"
+#include "Scene.hh"
 #include "RenderPipeline.hh"
 
 #include <glm/ext.hpp>
@@ -16,7 +17,8 @@ protected:
 	virtual void onResize(int w, int h) override;
 
 private:
-	Model model;
+	//Model model;
+	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
 
 	glm::vec3 ambientColor = glm::vec3(0.01f);

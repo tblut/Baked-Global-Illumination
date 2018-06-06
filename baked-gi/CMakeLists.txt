@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(baked-gi)
 
 file(GLOB SOURCES "*.cc" "*.hh")
-file(GLOB SHADERS "shaders/*.*sh")
+file(GLOB SHADERS "shaders/*.*sh" "shaders/*.glsl")
 file(GLOB TINY_GLTF_SOURCES "tinygltf/*.h" "tinygltf/*.hpp")
 
 source_group("Source" FILES ${SOURCES})

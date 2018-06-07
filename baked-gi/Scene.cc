@@ -121,12 +121,16 @@ namespace {
 
 		const auto& sampler = model.samplers[texture.sampler];
 		tex->setAnisotropicFiltering(16.0f);
-		tex->setMagFilter(sampler.magFilter);
-		tex->setMinFilter(sampler.minFilter);
+		//tex->setMagFilter(sampler.magFilter);
+		//tex->setMinFilter(sampler.minFilter);
+		tex->setMagFilter(GL_LINEAR);
+		tex->setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
 		tex->setWrapS(sampler.wrapS);
 		tex->setWrapT(sampler.wrapT);
 
-		return glow::Texture2D::createFromData(tex);
+		auto tex2D = glow::Texture2D::createFromData(tex);
+		tex2D->bind().generateMipmaps();
+		return tex2D;
 	}
 
 	Material createMaterial(const tinygltf::Material& material, const tinygltf::Model& model, TextureCache& textureCache) {

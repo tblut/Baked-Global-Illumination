@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Model.hh"
 #include "Scene.hh"
 #include "RenderPipeline.hh"
 
@@ -19,5 +18,4 @@ protected:
 private:
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
-	DirectionalLight light;
 };

@@ -31,12 +31,11 @@ RenderPipeline::RenderPipeline() {
 	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
 	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
 	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
-	vertexArray = glow::geometry::UVSphere<>().generate();
+	debugImageShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/DebugImage.fsh" });
 	vaoQuad = glow::geometry::Quad<>().generate();
+	vaoHalfQuad = glow::geometry::Quad<>(glow::geometry::Quad<>::attributesOf((glm::vec2*)0), { 0.5, 0.5 }, { 1, 1 }).generate();
 	vaoCube = glow::geometry::Cube<>().generate();
-	textureColor = glow::Texture2D::createFromFile(workDir + "/textures/panels.color.png", glow::ColorSpace::sRGB);
-	textureNormal = glow::Texture2D::createFromFile(workDir + "/textures/panels.normal.png", glow::ColorSpace::Linear);
-
+	
 	hdrColorBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
 	brightnessBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
 	depthBuffer = glow::TextureRectangle::create(2, 2, GL_DEPTH_COMPONENT32);
@@ -163,6 +162,16 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		p.setTexture("uBloomBuffer", blurColorBufferB);
 		vaoQuad->bind().draw();
 	}
+
+	// Debug texture
+	if (debugTexture) {
+		GLOW_SCOPED(disable, GL_DEPTH_TEST);
+		GLOW_SCOPED(disable, GL_CULL_FACE);
+
+		auto p = debugImageShader->use();
+		p.setTexture("uDebugImage", debugTexture);
+		vaoHalfQuad->bind().draw();
+	}
 }
 
 void RenderPipeline::resizeBuffers(int w, int h) {
@@ -183,4 +192,8 @@ void RenderPipeline::attachCamera(const glow::camera::CameraBase& camera) {
 
 void RenderPipeline::attachLight(const DirectionalLight& light) {
 	this->light = &light;
+}
+
+void RenderPipeline::setDebugTexture(glow::SharedTexture2D texture) {
+	this->debugTexture = texture;
 }

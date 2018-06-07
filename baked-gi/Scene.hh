@@ -4,6 +4,8 @@
 #include "Mesh.hh"
 #include "RenderPipeline.hh"
 #include "DirectionalLight.hh"
+#include "Primitive.hh"
+#include "Image.hh"
 
 #include <glow/fwd.hh>
 #include <string>
@@ -11,13 +13,21 @@
 
 class Scene {
 public:
-	void loadFromGltf(const std::string& path);
+	void loadFromGltf(const std::string& path, bool makeRealtimeObjects = true);
 	void render(RenderPipeline& pipeline) const;
 
 	DirectionalLight& getSun();
 	const DirectionalLight& getSun() const;
 
 private:
-	std::vector<Mesh> meshes;
+	// Common
 	DirectionalLight sun;
+
+	// Offline rendering
+	std::vector<SharedImage> images;
+	std::vector<Primitive> primitives;
+
+	// Realtime rendering
+	std::vector<glow::SharedTexture2D> textures;
+	std::vector<Mesh> meshes;
 };

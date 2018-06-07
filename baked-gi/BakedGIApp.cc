@@ -18,6 +18,13 @@
 #include <embree3/rtcore.h>
 #include "tinygltf/tiny_gltf.h"
 
+namespace {
+	void debugTrace(void* clientData) {
+		PathTracer* tracer = static_cast<PathTracer*>(clientData);
+		tracer->traceDebugImage();
+	}
+}
+
 void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
 
@@ -31,12 +38,18 @@ void BakedGIApp::init() {
 	pipeline->attachCamera(*getCamera());
 	pipeline->attachLight(scene.getSun());
 
+	pathTracer = std::make_unique<PathTracer>();
+	pathTracer->attachDebugCamera(*getCamera());
+
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
+	TwAddButton(tweakbar(), "Debug Trace", debugTrace, pathTracer.get(), "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
+	pipeline->setDebugTexture(showDebugImage ? pathTracer->getDebugTexture() : nullptr);
 	scene.render(*pipeline);
 }
 

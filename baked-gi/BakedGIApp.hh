@@ -2,6 +2,7 @@
 
 #include "Scene.hh"
 #include "RenderPipeline.hh"
+#include "PathTracer.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -18,4 +19,6 @@ protected:
 private:
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
+	std::unique_ptr<PathTracer> pathTracer;
+	bool showDebugImage = false;
 };

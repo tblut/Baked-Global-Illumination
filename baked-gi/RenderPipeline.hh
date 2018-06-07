@@ -19,6 +19,8 @@ public:
 	void attachCamera(const glow::camera::CameraBase& camera);
 	void attachLight(const DirectionalLight& light);
 
+	void setDebugTexture(glow::SharedTexture2D texture);
+
 private:
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -36,13 +38,13 @@ private:
 	glow::SharedProgram downsampleShader;
 	glow::SharedProgram blurShader;
 	glow::SharedProgram postProcessShader;
+	glow::SharedProgram debugImageShader;
 
 	glow::SharedVertexArray vaoQuad;
+	glow::SharedVertexArray vaoHalfQuad;
 	glow::SharedVertexArray vaoCube;
-	glow::SharedVertexArray vertexArray;
 
-	glow::SharedTexture2D textureColor;
-	glow::SharedTexture2D textureNormal;
+	glow::SharedTexture2D debugTexture;
 	glow::SharedTextureCubeMap skybox;
 
 	const glow::camera::CameraBase* camera;

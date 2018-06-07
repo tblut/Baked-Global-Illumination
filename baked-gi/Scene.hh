@@ -12,7 +12,10 @@
 class Scene {
 public:
 	void loadFromGltf(const std::string& path);
-	void render(const glow::camera::CameraBase& camera, RenderPipeline& pipeline) const;
+	void render(RenderPipeline& pipeline) const;
+
+	DirectionalLight& getSun();
+	const DirectionalLight& getSun() const;
 
 private:
 	std::vector<Mesh> meshes;

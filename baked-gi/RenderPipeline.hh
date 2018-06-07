@@ -12,11 +12,12 @@ class RenderPipeline {
 public:
 	RenderPipeline();
 
-	void render(const glow::camera::CameraBase& camera, const std::vector<Mesh>& meshes);
+	void render(const std::vector<Mesh>& meshes);
 	void resizeBuffers(int w, int h);
 
 	void setAmbientColor(const glm::vec3& color);
-	void setLight(const DirectionalLight& light);
+	void attachCamera(const glow::camera::CameraBase& camera);
+	void attachLight(const DirectionalLight& light);
 
 private:
 	glow::SharedTextureRectangle hdrColorBuffer;
@@ -44,6 +45,7 @@ private:
 	glow::SharedTexture2D textureNormal;
 	glow::SharedTextureCubeMap skybox;
 
-	glm::vec3 ambientColor = glm::vec3(0.1f);
-	DirectionalLight light;
+	const glow::camera::CameraBase* camera;
+	glm::vec3 ambientColor = glm::vec3(0.05f);
+	const DirectionalLight* light;
 };

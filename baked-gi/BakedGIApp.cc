@@ -25,16 +25,19 @@ void BakedGIApp::init() {
 	cam->setPosition({ 2, 2, 2 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
-	//TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &light.color, "group=light");
-	//TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &light.direction, "group=light");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
 
 	pipeline = std::make_unique<RenderPipeline>();
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
+	pipeline->attachCamera(*getCamera());
+	pipeline->attachLight(scene.getSun());
+
+	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
+	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
+	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
-	scene.render(*getCamera(), *pipeline);
+	scene.render(*pipeline);
 }
 
 void BakedGIApp::onResize(int w, int h) {

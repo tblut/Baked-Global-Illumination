@@ -58,10 +58,10 @@ RenderPipeline::RenderPipeline() {
 		glow::ColorSpace::sRGB));
 }
 
-void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::vector<Mesh>& meshes) {
+void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	{ // Render scene to HDR buffer
 		auto fbo = hdrFbo->bind();
-		const auto& cam = camera;
+		const auto& cam = *camera;
 
 		GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(enable, GL_CULL_FACE);
@@ -78,8 +78,8 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-					p.setUniform("uLightDir", glm::normalize(-light.direction));
-					p.setUniform("uLightColor", gammaToLinear(light.color) * light.power);
+					p.setUniform("uLightDir", glm::normalize(-light->direction));
+					p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
 
 					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 					p.setUniform("uMetallic", mesh.material.metallic);
@@ -98,8 +98,8 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-					p.setUniform("uLightDir", glm::normalize(-light.direction));
-					p.setUniform("uLightColor", gammaToLinear(light.color) * light.power);
+					p.setUniform("uLightDir", glm::normalize(-light->direction));
+					p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
 
 					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 					p.setUniform("uMetallic", mesh.material.metallic);
@@ -177,6 +177,10 @@ void RenderPipeline::setAmbientColor(const glm::vec3& color) {
 	ambientColor = color;
 }
 
-void RenderPipeline::setLight(const DirectionalLight& light) {
-	this->light = light;
+void RenderPipeline::attachCamera(const glow::camera::CameraBase& camera) {
+	this->camera = &camera;
+}
+
+void RenderPipeline::attachLight(const DirectionalLight& light) {
+	this->light = &light;
 }

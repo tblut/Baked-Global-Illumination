@@ -46,11 +46,11 @@ namespace {
 
 		switch (accessor.componentType) {
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-			return glow::ElementArrayBuffer::create(accessor.count, dataPtr.u8Ptr);
+			return glow::ElementArrayBuffer::create(static_cast<int>(accessor.count), dataPtr.u8Ptr);
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-			return glow::ElementArrayBuffer::create(accessor.count, dataPtr.u16Ptr);
+			return glow::ElementArrayBuffer::create(static_cast<int>(accessor.count), dataPtr.u16Ptr);
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-			return glow::ElementArrayBuffer::create(accessor.count, dataPtr.u32Ptr);
+			return glow::ElementArrayBuffer::create(static_cast<int>(accessor.count), dataPtr.u32Ptr);
 		}
 
 		return nullptr;
@@ -324,7 +324,14 @@ void Scene::loadFromGltf(const std::string& path) {
 	}
 }
 
-void Scene::render(const glow::camera::CameraBase& camera, RenderPipeline& pipeline) const {
-	//pipeline.setLight(sun);
-	pipeline.render(camera, meshes);
+void Scene::render(RenderPipeline& pipeline) const {
+	pipeline.render(meshes);
+}
+
+DirectionalLight& Scene::getSun() {
+	return sun;
+}
+
+const DirectionalLight& Scene::getSun() const {
+	return sun;
 }

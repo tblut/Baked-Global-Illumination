@@ -169,6 +169,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		GLOW_SCOPED(disable, GL_CULL_FACE);
 
 		auto p = debugImageShader->use();
+		p.setUniform("uViewportSize", glm::vec2(camera->getViewportSize()));
 		p.setTexture("uDebugImage", debugTexture);
 		vaoHalfQuad->bind().draw();
 	}
@@ -186,7 +187,7 @@ void RenderPipeline::setAmbientColor(const glm::vec3& color) {
 	ambientColor = color;
 }
 
-void RenderPipeline::attachCamera(const glow::camera::CameraBase& camera) {
+void RenderPipeline::attachCamera(const glow::camera::GenericCamera& camera) {
 	this->camera = &camera;
 }
 

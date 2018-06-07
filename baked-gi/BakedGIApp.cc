@@ -29,7 +29,7 @@ void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
 
 	auto cam = getCamera();
-	cam->setPosition({ 2, 2, 2 });
+	cam->setPosition({ 0, 0, 1 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
 	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
@@ -40,6 +40,7 @@ void BakedGIApp::init() {
 
 	pathTracer = std::make_unique<PathTracer>();
 	pathTracer->attachDebugCamera(*getCamera());
+	pathTracer->buildScene(scene.primitives);
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
@@ -56,4 +57,8 @@ void BakedGIApp::render(float elapsedSeconds) {
 void BakedGIApp::onResize(int w, int h) {
 	glow::glfw::GlfwApp::onResize(w, h);
 	pipeline->resizeBuffers(w, h);
+
+	pathTracer->setDebugImageSize(
+		getCamera()->getViewportWidth() / 4,
+		getCamera()->getViewportHeight() / 4);
 }

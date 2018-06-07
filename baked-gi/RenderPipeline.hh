@@ -5,7 +5,7 @@
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
-#include <glow-extras/camera/CameraBase.hh>
+#include <glow-extras/camera/GenericCamera.hh>
 #include <vector>
 
 class RenderPipeline {
@@ -16,7 +16,7 @@ public:
 	void resizeBuffers(int w, int h);
 
 	void setAmbientColor(const glm::vec3& color);
-	void attachCamera(const glow::camera::CameraBase& camera);
+	void attachCamera(const glow::camera::GenericCamera& camera);
 	void attachLight(const DirectionalLight& light);
 
 	void setDebugTexture(glow::SharedTexture2D texture);
@@ -47,7 +47,7 @@ private:
 	glow::SharedTexture2D debugTexture;
 	glow::SharedTextureCubeMap skybox;
 
-	const glow::camera::CameraBase* camera;
+	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.05f);
 	const DirectionalLight* light;
 };

@@ -5,6 +5,7 @@
 #include "RenderPipeline.hh"
 #include "DirectionalLight.hh"
 
+#include <glow/fwd.hh>
 #include <string>
 #include <vector>
 

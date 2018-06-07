@@ -26,13 +26,10 @@ void BakedGIApp::init() {
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
-	//TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &lightColor, "group=light");
-	//TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &lightDir, "group=light");
+	//TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &light.color, "group=light");
+	//TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &light.direction, "group=light");
 
 	pipeline = std::make_unique<RenderPipeline>();
-
-	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/kitchen/Country-Kitchen.obj", glow::util::pathOf(__FILE__) + "/models/kitchen/Textures/");
-	//model.loadFromFile(glow::util::pathOf(__FILE__) + "/models/living_room/living_room.obj", glow::util::pathOf(__FILE__) + "/models/living_room/textures/");
 	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
 }
 

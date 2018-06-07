@@ -2,7 +2,7 @@
 
 in vec3 vWorldPos;
 in vec3 vNormal;
-in vec3 vTangent;
+in vec4 vTangent;
 in vec2 vTexCoord;
 
 out vec3 fColor;
@@ -17,27 +17,29 @@ uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 
 uniform sampler2D uTextureColor;
+uniform sampler2D uTextureRoughness;
 uniform sampler2D uTextureNormal;
 
-vec3 unpackNormalmap(vec3 rgb) {
-  return vec3(rgb.rg * 2 - 1 - 1 / 256, rgb.b);
+vec3 unpackNormalMap(vec3 rgb) {
+	return vec3(rgb.rg * 2 - 1, rgb.b);
 }
 
 void main() {
 	vec3 N = normalize(vNormal);
-	vec3 T = normalize(vTangent);
-	vec3 B = normalize(cross(T, N));
+	vec3 T = normalize(vTangent.xyz) * vTangent.w;
+	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);
 
 	// Texturing
 	vec3 color = texture(uTextureColor, vTexCoord).rgb * uBaseColor;
-    vec3 normal = unpackNormalmap(texture(uTextureNormal, vTexCoord).rgb);
+	float roughness = texture(uTextureRoughness, vTexCoord).r * uRoughness;
+    vec3 normal = unpackNormalMap(texture(uTextureNormal, vTexCoord).rgb);
     N = normalize(TBN * normal);
 
 	// Shading
 	vec3 V = normalize(uCamPos - vWorldPos);
 	vec3 L = uLightDir;
-    fColor = uAmbientColor * color + shadingGGX(N, V, L, color, uRoughness, uMetallic) * uLightColor;
+    fColor = uAmbientColor * color + shadingGGX(N, V, L, color, roughness, uMetallic) * uLightColor;
 
 	// Extract brightness for bloom
 	float brightness = dot(fColor, vec3(0.2126, 0.7152, 0.0722));

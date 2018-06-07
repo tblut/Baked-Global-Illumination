@@ -75,6 +75,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uView", cam.getViewMatrix());
 					p.setUniform("uProj", cam.getProjectionMatrix());
 					p.setUniform("uModel", mesh.transform);
+					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
 					p.setUniform("uLightDir", glm::normalize(-light.direction));
@@ -84,6 +85,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uMetallic", mesh.material.metallic);
 					p.setUniform("uRoughness", mesh.material.roughness);
 					p.setTexture("uTextureColor", mesh.material.colorMap);
+					p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
 					p.setTexture("uTextureNormal", mesh.material.normalMap);
 
 					mesh.vao->bind().draw();
@@ -93,6 +95,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 					p.setUniform("uView", cam.getViewMatrix());
 					p.setUniform("uProj", cam.getProjectionMatrix());
 					p.setUniform("uModel", mesh.transform);
+					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 					p.setUniform("uCamPos", cam.getPosition());
 					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
 					p.setUniform("uLightDir", glm::normalize(-light.direction));
@@ -119,7 +122,7 @@ void RenderPipeline::render(const glow::camera::CameraBase& camera, const std::v
 			p.setUniform("uProj", cam.getProjectionMatrix());
 			p.setTexture("uSkybox", skybox);
 
-			//vaoCube->bind().draw();
+			vaoCube->bind().draw();
 		}
 	}
 

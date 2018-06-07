@@ -10,7 +10,11 @@
 #include <glow/data/TextureData.hh>
 #include <glow/data/SurfaceData.hh>
 
+#include <unordered_map>
+
 namespace {
+	using TextureCache = std::unordered_map<int, glow::SharedTexture2D>;
+
 	union EabDataPtr {
 		const unsigned char* u8Ptr;
 		const unsigned short* u16Ptr;
@@ -25,7 +29,7 @@ namespace {
 
 		int stride = accessor.ByteStride(bufferView);
 		const unsigned char* dataPtr = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-
+		
 		auto ab = glow::ArrayBuffer::create();
 		ab->defineAttribute<AttrType>(attribute);
 		ab->bind().setData(stride * accessor.count, dataPtr);
@@ -85,7 +89,25 @@ namespace {
 			break;
 		}
 
-		if (image.component == 3) {
+		if (image.component == 1) {
+			surface->setFormat(GL_RGB);
+			tex->setPreferredInternalFormat(iformatRGB);
+			
+			// convert grey to rgb
+			std::vector<char> newData;
+			const auto& oldData = surface->getData();
+			auto oldSize = oldData.size();
+			newData.resize(oldData.size() * 3);
+			for (std::size_t i = 0; i < oldSize; ++i)
+			{
+				auto d = oldData[i];
+				newData[i * 3 + 0] = d;
+				newData[i * 3 + 1] = d;
+				newData[i * 3 + 2] = d;
+			}
+			surface->setData(newData);
+		}
+		else if (image.component == 3) {
 			tex->setPreferredInternalFormat(iformatRGB);
 			surface->setFormat(GL_RGB);
 		}
@@ -107,36 +129,80 @@ namespace {
 		return glow::Texture2D::createFromData(tex);
 	}
 
-	Material createMaterial(const tinygltf::Material& material, const tinygltf::Model& model) {
+	Material createMaterial(const tinygltf::Material& material, const tinygltf::Model& model, TextureCache& textureCache) {
 		Material resultMat;
 		
-		auto it = material.values.find("baseColorFactor");
-		if (it != material.values.end()) {
-			resultMat.baseColor.r = static_cast<float>(it->second.ColorFactor()[0]);
-			resultMat.baseColor.g = static_cast<float>(it->second.ColorFactor()[1]);
-			resultMat.baseColor.b = static_cast<float>(it->second.ColorFactor()[2]);
+		{
+			auto it = material.values.find("baseColorFactor");
+			if (it != material.values.end()) {
+				resultMat.baseColor.r = static_cast<float>(it->second.ColorFactor()[0]);
+				resultMat.baseColor.g = static_cast<float>(it->second.ColorFactor()[1]);
+				resultMat.baseColor.b = static_cast<float>(it->second.ColorFactor()[2]);
+			}
 		}
 
-		it = material.values.find("roughnessFactor");
-		if (it != material.values.end()) {
-			resultMat.roughness = static_cast<float>(it->second.Factor());
+		{
+			auto it = material.values.find("roughnessFactor");
+			if (it != material.values.end()) {
+				resultMat.roughness = static_cast<float>(it->second.Factor());
+			}
 		}
 
-		it = material.values.find("metallicFactor");
-		if (it != material.values.end()) {
-			resultMat.metallic = static_cast<float>(it->second.Factor());
+		{
+			auto it = material.values.find("metallicFactor");
+			if (it != material.values.end()) {
+				resultMat.metallic = static_cast<float>(it->second.Factor());
+			}
 		}
 
-		it = material.values.find("baseColorTexture");
-		if (it != material.values.end()) {
-			resultMat.colorMap = createTexture(model.textures[it->second.TextureIndex()], model, glow::ColorSpace::sRGB);
+		{
+			auto it = material.values.find("baseColorTexture");
+			if (it != material.values.end()) {
+				auto textureIndex = it->second.TextureIndex();
+				auto texIt = textureCache.find(textureIndex);
+
+				if (texIt == textureCache.end()) {
+					resultMat.colorMap = createTexture(model.textures[textureIndex], model, glow::ColorSpace::sRGB);
+					textureCache.insert({ textureIndex, resultMat.colorMap });
+				}
+				else {
+					resultMat.colorMap = texIt->second;
+				}
+			}
 		}
 
-		it = material.additionalValues.find("normalTexture");
-		if (it != material.additionalValues.end()) {
-			resultMat.normalMap = createTexture(model.textures[it->second.TextureIndex()], model, glow::ColorSpace::Linear);
+		{
+			auto it = material.values.find("metallicRoughnessTexture");
+			if (it != material.values.end()) {
+				auto textureIndex = it->second.TextureIndex();
+				auto texIt = textureCache.find(textureIndex);
+
+				if (texIt == textureCache.end()) {
+					resultMat.roughnessMap = createTexture(model.textures[textureIndex], model, glow::ColorSpace::Linear);
+					textureCache.insert({ textureIndex, resultMat.roughnessMap });
+				}
+				else {
+					resultMat.roughnessMap = texIt->second;
+				}
+			}
 		}
 
+		{
+			auto it = material.additionalValues.find("normalTexture");
+			if (it != material.additionalValues.end()) {
+				auto textureIndex = it->second.TextureIndex();
+				auto texIt = textureCache.find(textureIndex);
+
+				if (texIt == textureCache.end()) {
+					resultMat.normalMap = createTexture(model.textures[textureIndex], model, glow::ColorSpace::Linear);
+					textureCache.insert({ textureIndex, resultMat.normalMap });
+				}
+				else {
+					resultMat.normalMap = texIt->second;
+				}
+			}
+		}
+		
 		return resultMat;
 	}
 
@@ -193,11 +259,13 @@ void Scene::loadFromGltf(const std::string& path) {
 		context.LoadBinaryFromFile(&model, &error, path);
 	}
 	else {
-		glow::error() << path << " is non a gltf file!";
+		glow::error() << path << " is not a gltf file!";
 		return;
 	}
 
+	TextureCache textureCache;
 	const auto& scene = model.scenes[model.defaultScene];
+
 	for (int nodeIndex : scene.nodes) {
 		const auto& node = model.nodes[nodeIndex];
 
@@ -207,7 +275,9 @@ void Scene::loadFromGltf(const std::string& path) {
 			sun.direction = glm::mat3(transform) * direction;
 		}
 		else if (node.mesh != -1) {
+			glm::mat4 transform = getTransformForNode(node);
 			const auto& mesh = model.meshes[node.mesh];
+
 			for (const auto& primitive : mesh.primitives) {
 				std::vector<glow::SharedArrayBuffer> abs;
 				
@@ -225,7 +295,7 @@ void Scene::loadFromGltf(const std::string& path) {
 
 				it = primitive.attributes.find("TANGENT");
 				if (it != primitive.attributes.end()) {
-					abs.push_back(createABForAccessor<glm::vec3>("aTangent", model.accessors[it->second], model));
+					abs.push_back(createABForAccessor<glm::vec4>("aTangent", model.accessors[it->second], model));
 				}
 				
 				it = primitive.attributes.find("TEXCOORD_0");
@@ -245,16 +315,16 @@ void Scene::loadFromGltf(const std::string& path) {
 					glow::warning() << path << " contains a primitive without a material!";
 				}
 				else {
-					material = createMaterial(model.materials[primitive.material], model);
+					material = createMaterial(model.materials[primitive.material], model, textureCache);
 				}
 
-				meshes.push_back({ va, material, getTransformForNode(node) });
+				meshes.push_back({ va, material, transform });
 			}
 		}
 	}
 }
 
 void Scene::render(const glow::camera::CameraBase& camera, RenderPipeline& pipeline) const {
-	pipeline.setLight(sun);
+	//pipeline.setLight(sun);
 	pipeline.render(camera, meshes);
 }

@@ -17,7 +17,7 @@ protected:
 	virtual void onResize(int w, int h) override;
 
 private:
-	//Model model;
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
+	DirectionalLight light;
 };

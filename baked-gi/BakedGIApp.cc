@@ -40,7 +40,7 @@ void BakedGIApp::init() {
 
 	pathTracer = std::make_unique<PathTracer>();
 	pathTracer->attachDebugCamera(*getCamera());
-	pathTracer->buildScene(scene.primitives);
+	scene.buildPathTracerScene(*pathTracer);
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");

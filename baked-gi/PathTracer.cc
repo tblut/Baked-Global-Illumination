@@ -59,9 +59,10 @@ void PathTracer::buildScene(const std::vector<Primitive>& primitives) {
 	
 	for (const auto& primitive : primitives) {
 		RTCGeometry mesh = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
-
-		auto indexBuffer = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX,
-			0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, primitive.indices.size()));
+		rtcSetGeometryVertexAttributeCount(mesh, 3);
+		
+		auto indexBuffer = rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX,
+			0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, primitive.indices.size());
 		std::memcpy(indexBuffer, primitive.indices.data(), primitive.indices.size() * sizeof(unsigned int));
 
 		auto vertexBuffer = static_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX,
@@ -73,9 +74,45 @@ void PathTracer::buildScene(const std::vector<Primitive>& primitives) {
 			vertexBuffer[i] = glm::vec3(primitive.transform * glm::vec4(vertexBuffer[i], 1.0f));
 		}
 
+		auto normalBuffer = static_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+			0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), primitive.normals.size()));
+		std::memcpy(normalBuffer, primitive.normals.data(), primitive.normals.size() * sizeof(glm::vec3));
+
+		// Bake the transform into the normals
+		auto normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
+		for (std::size_t i = 0; i < primitive.normals.size(); ++i) {
+			normalBuffer[i] = normalMatrix * normalBuffer[i];
+		}
+
+		if (!primitive.tangents.empty()) {
+			auto tangentBuffer = static_cast<glm::vec4*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+				1, RTC_FORMAT_FLOAT4, sizeof(glm::vec4), primitive.tangents.size()));
+			std::memcpy(tangentBuffer, primitive.tangents.data(), primitive.tangents.size() * sizeof(glm::vec4));
+
+			// Bake the transform into the tangents
+			for (std::size_t i = 0; i < primitive.tangents.size(); ++i) {
+				tangentBuffer[i] = glm::vec4(normalMatrix * (glm::vec3(tangentBuffer[i]) * tangentBuffer[i].w), 1.0f);
+			}
+		}
+
+		if (!primitive.texCoords.empty()) {
+			auto texCoordBuffer = static_cast<glm::vec2*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+				2, RTC_FORMAT_FLOAT2, sizeof(glm::vec2), primitive.texCoords.size()));
+			std::memcpy(texCoordBuffer, primitive.texCoords.data(), primitive.texCoords.size() * sizeof(glm::vec2));
+		}
+
 		rtcCommitGeometry(mesh);
-		rtcAttachGeometry(scene, mesh);
+		auto geomID = rtcAttachGeometry(scene, mesh);
 		rtcReleaseGeometry(mesh);
+
+		Material material;
+		material.albedoMap = primitive.albedoMap;
+		material.normalMap = primitive.normalMap;
+		material.roughnessMap = primitive.roughnessMap;
+		material.baseColor = primitive.baseColor;
+		material.roughness = primitive.roughness;
+		material.metallic = primitive.metallic;
+		materials.insert({ geomID, material });
 	}
 
 	rtcCommitScene(scene);
@@ -100,10 +137,21 @@ void PathTracer::traceDebugImage() {
 
 			rtcIntersect1(scene, &context, &rayhit);
 			if (rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-				debugImage[x + y * debugImageWidth] = { (rayhit.hit.Ng_x + 1) / 2, (rayhit.hit.Ng_y + 1) / 2, (rayhit.hit.Ng_z + 1) / 2 };
+				auto material = materials[rayhit.hit.geomID];
+
+				if (material.albedoMap) {
+					alignas(16) float texCoord[2];
+					rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
+						rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 2, texCoord, 2);
+
+					debugImage[x + y * debugImageWidth] = material.albedoMap->sample({ texCoord[0], texCoord[1] });
+				}
+				else {
+					debugImage[x + y * debugImageWidth] = material.baseColor;
+				}
 			}
 			else {
-				debugImage[x + y * debugImageWidth] = { 0.0f, 1.0f, 0.0f };
+				debugImage[x + y * debugImageWidth] = { 0.0f, 0.0f, 0.0f };
 			}
 		}
 	}

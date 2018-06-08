@@ -3,6 +3,7 @@
 #include <glow/gl.hh>
 #include <glow/fwd.hh>
 #include <glow/data/ColorSpace.hh>
+#include <glm/glm.hpp>
 #include <vector>
 #include <memory>
 
@@ -29,6 +30,8 @@ public:
 	const T* getDataPtr() const {
 		return reinterpret_cast<const T*>(data.data());
 	}
+
+	glm::vec4 sample(glm::vec2 uv) const;
 
 	glow::SharedTexture2D createTexture() const;
 

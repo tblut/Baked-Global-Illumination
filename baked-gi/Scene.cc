@@ -1,4 +1,5 @@
 #include "Scene.hh"
+#include "PathTracer.hh"
 #include "tinygltf/tiny_gltf.h"
 
 #include <glow/fwd.hh>
@@ -298,6 +299,10 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 
 void Scene::render(RenderPipeline& pipeline) const {
 	pipeline.render(meshes);
+}
+
+void Scene::buildPathTracerScene(PathTracer& pathTracer) const {
+	pathTracer.buildScene(primitives);
 }
 
 DirectionalLight& Scene::getSun() {

@@ -1,3 +1,13 @@
+## Setup
+
+### Windows
+
+Set the correct path to Embree 3.1 and add the bin/ directory in the Embree installation directory to the PATH variable.
+
+### Linux
+
+TODO
+
 ## Library licenses
 
 * tiny_gltf.h : MIT license
@@ -7,3 +17,5 @@
 * stb_image_write.h : v1.09 - public domain image writer - [Github link](https://github.com/nothings/stb/blob/master/stb_image_write.h)
 
 ## Textures
+
+All textures are taken from [textures.com](https://www.textures.com/)

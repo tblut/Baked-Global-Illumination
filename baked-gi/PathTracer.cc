@@ -89,7 +89,7 @@ void PathTracer::traceDebugImage() {
 			rtcInitIntersectContext(&context);
 
 			float aspect = debugImageWidth / static_cast<float>(debugImageHeight);
-			float fov = debugCamera->getVerticalFieldOfView();
+			float fov = debugCamera->getHorizontalFieldOfView();
 			float scale = std::tan(glm::radians(fov * 0.5f));
 			float px = (2.0f * ((x + 0.5f) / debugImageWidth) - 1.0f) * scale * aspect;
 			float py = (1.0f - 2.0f * ((y + 0.5f) / debugImageHeight)) * scale;

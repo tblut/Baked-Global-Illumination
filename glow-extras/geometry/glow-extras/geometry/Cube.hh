@@ -92,7 +92,7 @@ public:
         auto ii = 0u;
 
         VertexT vertices[4 * 3 * 2];
-        uint8_t indices[6 * 3 * 2];
+        uint16_t indices[6 * 3 * 2];
 
         for (int i = 0; i < 3; ++i)
         {

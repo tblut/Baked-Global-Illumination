@@ -13,6 +13,7 @@
 #include <glow-extras/geometry/Cube.hh>
 #include <glow-extras/camera/GenericCamera.hh>
 #include <glow-extras/assimp/Importer.hh>
+#include <glow-extras/debugging/DebugRenderer.hh>
 #include <AntTweakBar.h>
 
 #include <embree3/rtcore.h>
@@ -27,6 +28,8 @@ namespace {
 
 void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
+
+	this->setQueryStats(false);
 
 	auto cam = getCamera();
 	cam->setPosition({ 0, 0, 1 });
@@ -44,6 +47,7 @@ void BakedGIApp::init() {
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
+	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, pathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
@@ -57,7 +61,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 void BakedGIApp::onResize(int w, int h) {
 	glow::glfw::GlfwApp::onResize(w, h);
 	pipeline->resizeBuffers(w, h);
-
+	
 	pathTracer->setDebugImageSize(
 		getCamera()->getViewportWidth() / 4,
 		getCamera()->getViewportHeight() / 4);

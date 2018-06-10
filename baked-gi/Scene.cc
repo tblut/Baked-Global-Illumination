@@ -303,6 +303,7 @@ void Scene::render(RenderPipeline& pipeline) const {
 
 void Scene::buildPathTracerScene(PathTracer& pathTracer) const {
 	pathTracer.buildScene(primitives);
+	pathTracer.setLight(sun);
 }
 
 DirectionalLight& Scene::getSun() {

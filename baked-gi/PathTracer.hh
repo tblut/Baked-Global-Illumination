@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Primitive.hh"
+#include "DirectionalLight.hh"
 
 #include <embree3/rtcore.h>
 #include <glow/fwd.hh>
@@ -15,6 +16,7 @@ public:
 	~PathTracer();
 
 	void buildScene(const std::vector<Primitive>& primitives);
+	void setLight(const DirectionalLight& light);
 
 	// Debugging
 	void traceDebugImage();
@@ -38,10 +40,12 @@ private:
 		float metallic = 0.0f;
 	};
 
+	glm::vec3 trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight, int depth = 0);
+
 	RTCDevice device = nullptr;
 	RTCScene scene = nullptr;
-
 	std::unordered_map<unsigned int, Material> materials;
+	const DirectionalLight* light;
 
 	// Debugging
 	int debugImageWidth;

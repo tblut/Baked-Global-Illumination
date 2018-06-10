@@ -48,6 +48,6 @@ private:
 	glow::SharedTextureCubeMap skybox;
 
 	const glow::camera::GenericCamera* camera;
-	glm::vec3 ambientColor = glm::vec3(0.05f);
+	glm::vec3 ambientColor = glm::vec3(0.0f);
 	const DirectionalLight* light;
 };

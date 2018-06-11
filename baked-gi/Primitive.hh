@@ -23,6 +23,6 @@ public:
 	SharedImage normalMap;
 	SharedImage roughnessMap;
 	glm::vec3 baseColor = glm::vec3(1.0f);
-	float roughness = 0.8f;
-	float metallic = 0.0f;
+	float roughness = 1.0f;
+	float metallic = 1.0f;
 };

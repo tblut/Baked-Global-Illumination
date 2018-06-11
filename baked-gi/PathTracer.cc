@@ -117,11 +117,18 @@ namespace {
 	}
 
 	glm::vec3 brdfCookTorrenceGGX(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, float roughness, const glm::vec3& F0) {
-		glm::vec3 H = glm::normalize(V + L);
-
-		float dotNH = std::max(0.0f, glm::dot(N, H));
 		float dotNV = std::max(0.0f, glm::dot(N, V));
 		float dotNL = std::max(0.0f, glm::dot(N, L));
+		if (dotNV < 1e-8f || dotNL < 1e-8f) {
+			return glm::vec3(0.0f);
+		}
+
+		glm::vec3 H = glm::normalize(V + L);
+		if (std::abs(H.x) < 1e-8f && std::abs(H.y) < 1e-8f && std::abs(H.z) < 1e-8f) {
+			return glm::vec3(0.0f);
+		}
+
+		float dotNH = std::max(0.0f, glm::dot(N, H));
 		float dotVH = std::max(0.0f, glm::dot(V, H));
 
 		float alpha = roughness * roughness;
@@ -136,7 +143,7 @@ namespace {
 
 		glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * std::pow(1.0f - dotVH, 5.0f);
 
-		return D * G * F / std::max(4.0f * dotNL * dotNV, 1e-8f);
+		return D * G * F / (4.0f * dotNL * dotNV);
 	}
 
 	glm::vec3 gammaToLinear(const glm::vec3& v) {

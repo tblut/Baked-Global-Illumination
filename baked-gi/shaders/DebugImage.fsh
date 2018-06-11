@@ -1,10 +1,9 @@
 uniform sampler2D uDebugImage;
-uniform vec2 uViewportSize;
+
+in vec2 vTexCoord;
 
 out vec3 fColor;
 
 void main() {
-	vec2 texCoord = gl_FragCoord.xy / uViewportSize * 2;
-	texCoord.y = 1 - texCoord.y;
-    fColor = texture(uDebugImage, texCoord).rgb;
+    fColor = texture(uDebugImage, vec2(vTexCoord.x, 1.0 - vTexCoord.y)).rgb;
 }

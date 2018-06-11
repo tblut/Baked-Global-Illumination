@@ -2,7 +2,7 @@
 
 #include "Scene.hh"
 #include "RenderPipeline.hh"
-#include "PathTracer.hh"
+#include "DebugPathTracer.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -19,6 +19,8 @@ protected:
 private:
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
-	std::unique_ptr<PathTracer> pathTracer;
+	std::unique_ptr<DebugPathTracer> debugPathTracer;
 	bool showDebugImage = false;
+	unsigned int samplesPerPixel = 100;
+	unsigned int maxPathDepth = 5;
 };

@@ -1,4 +1,5 @@
 #include "RenderPipeline.hh"
+#include "ColorUtils.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture2D.hh>
@@ -13,16 +14,6 @@
 #include <glow-extras/geometry/Cube.hh>
 #include <glow-extras/camera/GenericCamera.hh>
 
-namespace {
-	glm::vec3 gammaToLinear(const glm::vec3& v) {
-		return { std::pow(v.x, 2.2f), std::pow(v.y, 2.2f) , std::pow(v.z, 2.2f) };
-	}
-
-	glm::vec3 linearToGamma(const glm::vec3& v) {
-		return { std::pow(v.x, 1.0f / 2.2f), std::pow(v.y, 1.0f / 2.2f) , std::pow(v.z, 1.0f / 2.2f) };
-	}
-}
-
 RenderPipeline::RenderPipeline() {
 	std::string workDir = glow::util::pathOf(__FILE__);
 	objectShader = glow::Program::createFromFile(workDir + "/shaders/Object");
@@ -31,9 +22,8 @@ RenderPipeline::RenderPipeline() {
 	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
 	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
 	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
-	debugImageShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/DebugImage.fsh" });
+	debugImageShader = glow::Program::createFromFile(workDir + "/shaders/DebugImage");
 	vaoQuad = glow::geometry::Quad<>().generate();
-	vaoHalfQuad = glow::geometry::Quad<>(glow::geometry::Quad<>::attributesOf((glm::vec2*)0), { 0.5, 0.5 }, { 1, 1 }).generate();
 	vaoCube = glow::geometry::Cube<>().generate();
 	
 	hdrColorBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
@@ -164,14 +154,25 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	}
 
 	// Debug texture
-	if (debugTexture) {
+	if (topRightDebugTexture || bottomRightDebugTexture) {
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
 		GLOW_SCOPED(disable, GL_CULL_FACE);
 
 		auto p = debugImageShader->use();
-		p.setUniform("uViewportSize", glm::vec2(camera->getViewportSize()));
-		p.setTexture("uDebugImage", debugTexture);
-		vaoHalfQuad->bind().draw();
+
+		if (topRightDebugTexture) {
+			p.setUniform("uOffset", glm::vec2(0.5f, 0.5f));
+			p.setUniform("uScale", glm::vec2(0.5f, 0.5f));
+			p.setTexture("uDebugImage", topRightDebugTexture);
+			vaoQuad->bind().draw();
+		}
+
+		if (bottomRightDebugTexture) {
+			p.setUniform("uOffset", glm::vec2(0.5f, 0.0f));
+			p.setUniform("uScale", glm::vec2(0.5f, 0.5f));
+			p.setTexture("uDebugImage", bottomRightDebugTexture);
+			vaoQuad->bind().draw();
+		}
 	}
 }
 
@@ -195,6 +196,11 @@ void RenderPipeline::attachLight(const DirectionalLight& light) {
 	this->light = &light;
 }
 
-void RenderPipeline::setDebugTexture(glow::SharedTexture2D texture) {
-	this->debugTexture = texture;
+void RenderPipeline::setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location) {
+	if (location == DebugImageLocation::TopRight) {
+		this->topRightDebugTexture = texture;
+	}
+	else {
+		this->bottomRightDebugTexture = texture;
+	}
 }

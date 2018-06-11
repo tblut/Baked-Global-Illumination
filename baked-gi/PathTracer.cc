@@ -1,4 +1,5 @@
 #include "PathTracer.hh"
+#include "ColorUtils.hh"
 
 #include <glow/objects/Texture2D.hh>
 #include <glow/data/SurfaceData.hh>
@@ -44,7 +45,6 @@ namespace {
 			geomID = RTC_INVALID_GEOMETRY_ID;
 		}
 	};
-
 
 	std::random_device randDevice;
 	std::default_random_engine randEngine(randDevice());
@@ -144,14 +144,6 @@ namespace {
 		glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * std::pow(1.0f - dotVH, 5.0f);
 
 		return D * G * F / (4.0f * dotNL * dotNV);
-	}
-
-	glm::vec3 gammaToLinear(const glm::vec3& v) {
-		return { std::pow(v.x, 2.2f), std::pow(v.y, 2.2f) , std::pow(v.z, 2.2f) };
-	}
-
-	glm::vec3 linearToGamma(const glm::vec3& v) {
-		return { std::pow(v.x, 1.0f / 2.2f), std::pow(v.y, 1.0f / 2.2f) , std::pow(v.z, 1.0f / 2.2f) };
 	}
 }
 
@@ -256,89 +248,31 @@ void PathTracer::buildScene(const std::vector<Primitive>& primitives) {
 	rtcCommitScene(scene);
 }
 
-void PathTracer::setLight(const DirectionalLight& light) {
-	this->light = &light;
-}
-
-void PathTracer::traceDebugImage() {
-	std::vector<glm::vec3> colors(debugImage.size(), glm::vec3(0.0f));
-
-	const int numSamples = 500;
-	for (int k = 0; k < numSamples; ++k) {
-
-		#pragma omp parallel for
-		for (int y = 0; y < debugImageHeight; ++y) {
-			for (int x = 0; x < debugImageWidth; ++x) {
-				float aspect = debugImageWidth / static_cast<float>(debugImageHeight);
-				float fov = debugCamera->getHorizontalFieldOfView();
-				float scale = std::tan(glm::radians(fov * 0.5f));
-				float newX = x + uniformDist(randEngine) - 0.5f;
-				float newY = y + uniformDist(randEngine) - 0.5f;
-				float px = (2.0f * ((newX + 0.5f) / debugImageWidth) - 1.0f) * scale * aspect;
-				float py = (1.0f - 2.0f * ((newY + 0.5f) / debugImageHeight)) * scale;
-
-				glm::vec3 dir = glm::transpose(debugCamera->getViewMatrix()) * glm::vec4(px, py, -1, 0);
-				colors[x + y * debugImageWidth] += trace(debugCamera->getPosition(), dir, glm::vec3(1.0f));
-			}
-		}
-	}
-
-	for (std::size_t i = 0; i < colors.size(); ++i) {
-		debugImage[i] = colors[i] / static_cast<float>(numSamples);
-		debugImage[i] = debugImage[i] / (debugImage[i] + glm::vec3(1.0f)); // Tone mapping
-		debugImage[i] = linearToGamma(debugImage[i]); // Gamma correction
-	}
-
-	debugTexture->bind().setData(GL_RGB, debugImageWidth, debugImageHeight, debugImage);
-}
-
-void PathTracer::attachDebugCamera(const glow::camera::GenericCamera& camera) {
-	debugCamera = &camera;
-}
-
-void PathTracer::setDebugImageSize(int width, int height) {
-	debugImageWidth = width;
-	debugImageHeight = height;
-	debugImage.resize(width * height);
-	if (!debugTexture) {
-		debugTexture = glow::Texture2D::create(width, height, GL_RGB);
-		debugTexture->bind().setFilter(GL_LINEAR, GL_LINEAR);
-	}
-	else {
-		debugTexture->bind().resize(width, height);
-	}
-}
-
-glow::SharedTexture2D PathTracer::getDebugTexture() const {
-	return debugTexture;
-}
-
 glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight, int depth) {
-	const int maxDepth = 4;
-	if (depth > maxDepth) {
-		return weight * glm::vec3{ 0.0f, 0.0f, 0.0f };
+	if (depth > maxPathDepth) {
+		return glm::vec3(0.0f);
 	}
-	
+
 	RTCRayHit rayhit = { Ray(origin, dir, 0.001f, std::numeric_limits<float>::infinity()), Hit() };
 	RTCIntersectContext context;
 	rtcInitIntersectContext(&context);
 	rtcIntersect1(scene, &context, &rayhit);
 
 	if (rayhit.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
-		return { 0.0f, 0.0f, 0.0f };
+		return glm::vec3(0.0f);
 	}
 
 	glm::vec3 surfacePoint;
 	surfacePoint.x = rayhit.ray.org_x + rayhit.ray.dir_x * rayhit.ray.tfar;
 	surfacePoint.y = rayhit.ray.org_y + rayhit.ray.dir_y * rayhit.ray.tfar;
 	surfacePoint.z = rayhit.ray.org_z + rayhit.ray.dir_z * rayhit.ray.tfar;
-	
+
 	alignas(16) glm::vec3 normal;
 	rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
 		rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, &normal[0], 3);
 	normal = glm::normalize(normal);
 	auto faceNormal = normal;
-	
+
 	auto material = materials[rayhit.hit.geomID];
 	glm::vec3 albedo;
 	float roughness = material.roughness;
@@ -381,7 +315,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		glm::vec3 E = glm::vec3(rayhit.ray.org_x, rayhit.ray.org_y, rayhit.ray.org_z);
 		glm::vec3 L = glm::normalize(-light->direction);
 		glm::vec3 V = glm::normalize(E - surfacePoint);
-		
+
 		glm::vec3 shadingDiffuse = brdfLambert(diffuse);
 		glm::vec3 shadingSpecular = brdfCookTorrenceGGX(normal, V, L, std::max(0.01f, roughness), specular);
 		glm::vec3 shading = shadingDiffuse + shadingSpecular;
@@ -434,4 +368,12 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 	}
 
 	return directIllumination + indirectIllumination;
+}
+
+void PathTracer::setLight(const DirectionalLight& light) {
+	this->light = &light;
+}
+
+void PathTracer::setMaxPathDepth(unsigned int depth) {
+	this->maxPathDepth = depth;
 }

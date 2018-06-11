@@ -8,6 +8,11 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <vector>
 
+enum class DebugImageLocation {
+	TopRight,
+	BottomRight
+};
+
 class RenderPipeline {
 public:
 	RenderPipeline();
@@ -19,7 +24,7 @@ public:
 	void attachCamera(const glow::camera::GenericCamera& camera);
 	void attachLight(const DirectionalLight& light);
 
-	void setDebugTexture(glow::SharedTexture2D texture);
+	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 
 private:
 	glow::SharedTextureRectangle hdrColorBuffer;
@@ -41,10 +46,10 @@ private:
 	glow::SharedProgram debugImageShader;
 
 	glow::SharedVertexArray vaoQuad;
-	glow::SharedVertexArray vaoHalfQuad;
 	glow::SharedVertexArray vaoCube;
 
-	glow::SharedTexture2D debugTexture;
+	glow::SharedTexture2D topRightDebugTexture;
+	glow::SharedTexture2D bottomRightDebugTexture;
 	glow::SharedTextureCubeMap skybox;
 
 	const glow::camera::GenericCamera* camera;

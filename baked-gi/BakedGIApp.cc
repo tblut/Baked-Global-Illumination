@@ -21,7 +21,7 @@
 
 namespace {
 	void debugTrace(void* clientData) {
-		PathTracer* tracer = static_cast<PathTracer*>(clientData);
+		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->traceDebugImage();
 	}
 }
@@ -41,20 +41,24 @@ void BakedGIApp::init() {
 	pipeline->attachCamera(*getCamera());
 	pipeline->attachLight(scene.getSun());
 
-	pathTracer = std::make_unique<PathTracer>();
-	pathTracer->attachDebugCamera(*getCamera());
-	scene.buildPathTracerScene(*pathTracer);
+	debugPathTracer = std::make_unique<DebugPathTracer>();
+	debugPathTracer->attachDebugCamera(*getCamera());
+	scene.buildPathTracerScene(*debugPathTracer);
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
-	TwAddButton(tweakbar(), "Debug Trace", debugTrace, pathTracer.get(), "group=pathtrace");
+	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "SPP", TW_TYPE_UINT32, &samplesPerPixel, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Max Path Depth", TW_TYPE_UINT32, &maxPathDepth, "group=pathtrace");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
-	pipeline->setDebugTexture(showDebugImage ? pathTracer->getDebugTexture() : nullptr);
+	debugPathTracer->setSamplesPerPixel(samplesPerPixel);
+	debugPathTracer->setMaxPathDepth(maxPathDepth);
+	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
 	scene.render(*pipeline);
 }
 
@@ -62,7 +66,7 @@ void BakedGIApp::onResize(int w, int h) {
 	glow::glfw::GlfwApp::onResize(w, h);
 	pipeline->resizeBuffers(w, h);
 	
-	pathTracer->setDebugImageSize(
+	debugPathTracer->setDebugImageSize(
 		getCamera()->getViewportWidth() / 4,
 		getCamera()->getViewportHeight() / 4);
 }

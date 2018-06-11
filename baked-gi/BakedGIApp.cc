@@ -35,7 +35,7 @@ void BakedGIApp::init() {
 	cam->setPosition({ 0, 0, 1 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox.glb");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox_notex.glb");
 
 	pipeline = std::make_unique<RenderPipeline>();
 	pipeline->attachCamera(*getCamera());

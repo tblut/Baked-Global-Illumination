@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <cassert>
 
 #if !defined(_MM_SET_DENORMALS_ZERO_MODE)
 #define _MM_DENORMALS_ZERO_ON   (0x0040)
@@ -17,6 +18,13 @@
 #endif
 
 namespace {
+	struct alignas(16) Vec3A {
+		float x;
+		float y;
+		float z;
+		float w;
+	};
+
 	struct Ray : public RTCRay {
 		Ray(const glm::vec3& origin, const glm::vec3& dir, float tnear, float tfar) {
 			this->org_x = origin.x;
@@ -81,7 +89,7 @@ namespace {
 		return diffuse / glm::pi<float>();
 	}
 
-	glm::vec3 sampleGGX(const glm::vec3& normal, float roughness) {
+	glm::vec3 sampleGGX(const glm::vec3& direction, float roughness) {
 		float u1 = uniformDist(randEngine);
 		float u2 = uniformDist(randEngine);
 
@@ -95,15 +103,15 @@ namespace {
 
 		glm::vec3 xAxis;
 		glm::vec3 yAxis;
-		makeCoordinateSystem(normal, xAxis, yAxis);
+		makeCoordinateSystem(direction, xAxis, yAxis);
 
-		return glm::normalize(x * xAxis + y * yAxis + z * normal);
+		return glm::normalize(x * xAxis + y * yAxis + z * direction);
 	}
 
-	float pdfGGX(const glm::vec3& normal, const glm::vec3& wi, float roughness) {
+	float pdfGGX(const glm::vec3& halfVector, const glm::vec3& wi, float roughness) {
 		float alpha = roughness * roughness;
 		float alphaSq = alpha * alpha;
-		float cosTheta = std::max(0.0f, glm::dot(normal, wi));
+		float cosTheta = std::max(0.0f, glm::dot(halfVector, wi));
 		float denom = (alphaSq - 1.0f) * cosTheta * cosTheta + 1.0f;
 		return alphaSq * cosTheta / (glm::pi<float>() * denom * denom);
 	}
@@ -169,44 +177,59 @@ void PathTracer::buildScene(const std::vector<Primitive>& primitives) {
 		rtcSetGeometryBuildQuality(mesh, RTCBuildQuality::RTC_BUILD_QUALITY_HIGH);
 		rtcSetGeometryVertexAttributeCount(mesh, 3);
 		
-		auto indexBuffer = rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX,
-			0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, primitive.indices.size());
-		std::memcpy(indexBuffer, primitive.indices.data(), primitive.indices.size() * sizeof(unsigned int));
-
-		auto vertexBuffer = static_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX,
-			0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), primitive.positions.size()));
-		std::memcpy(vertexBuffer, primitive.positions.data(), primitive.positions.size() * sizeof(glm::vec3));
-
-		// Bake the transform into the positions
-		for (std::size_t i = 0; i < primitive.positions.size(); ++i) {
-			vertexBuffer[i] = glm::vec3(primitive.transform * glm::vec4(vertexBuffer[i], 1.0f));
+		auto indexBuffer = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX,
+			0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, primitive.indices.size() / 3));
+		for (std::size_t i = 0; i < primitive.indices.size(); ++i) {
+			indexBuffer[i] = primitive.indices[i];
 		}
 
-		auto normalBuffer = static_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
-			0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), primitive.normals.size()));
-		std::memcpy(normalBuffer, primitive.normals.data(), primitive.normals.size() * sizeof(glm::vec3));
+		auto vertexBuffer = static_cast<Vec3A*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX,
+			0, RTC_FORMAT_FLOAT3, sizeof(Vec3A), primitive.positions.size()));
+		
+		for (std::size_t i = 0; i < primitive.positions.size(); ++i) {
+			// Bake the transform into the positions
+			auto worldPos = glm::vec3(primitive.transform * glm::vec4(primitive.positions[i], 1.0f));
 
-		// Bake the transform into the normals
+			vertexBuffer[i].x = worldPos.x;
+			vertexBuffer[i].y = worldPos.y;
+			vertexBuffer[i].z = worldPos.z;
+		}
+
+		auto normalBuffer = static_cast<Vec3A*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+			0, RTC_FORMAT_FLOAT3, sizeof(Vec3A), primitive.normals.size()));
 		auto normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
 		for (std::size_t i = 0; i < primitive.normals.size(); ++i) {
-			normalBuffer[i] = normalMatrix * normalBuffer[i];
+			// Bake the transform into the normals
+			auto worldNormal = normalMatrix * primitive.normals[i];
+
+			normalBuffer[i].x = worldNormal.x;
+			normalBuffer[i].y = worldNormal.y;
+			normalBuffer[i].z = worldNormal.z;
 		}
 
 		if (!primitive.tangents.empty()) {
-			auto tangentBuffer = static_cast<glm::vec4*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
-				1, RTC_FORMAT_FLOAT4, sizeof(glm::vec4), primitive.tangents.size()));
-			std::memcpy(tangentBuffer, primitive.tangents.data(), primitive.tangents.size() * sizeof(glm::vec4));
+			auto tangentBuffer = static_cast<Vec3A*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+				1, RTC_FORMAT_FLOAT4, sizeof(Vec3A), primitive.tangents.size()));
 
-			// Bake the transform into the tangents
 			for (std::size_t i = 0; i < primitive.tangents.size(); ++i) {
-				tangentBuffer[i] = glm::vec4(normalMatrix * (glm::vec3(tangentBuffer[i]) * tangentBuffer[i].w), 1.0f);
+				// Bake the transform into the tangents
+				auto worldTangent = glm::vec4(normalMatrix * (glm::vec3(primitive.tangents[i]) * primitive.tangents[i].w), 1.0f);
+
+				tangentBuffer[i].x = worldTangent.x;
+				tangentBuffer[i].y = worldTangent.y;
+				tangentBuffer[i].z = worldTangent.z;
+				tangentBuffer[i].w = worldTangent.w;
 			}
 		}
 
 		if (!primitive.texCoords.empty()) {
-			auto texCoordBuffer = static_cast<glm::vec2*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
-				2, RTC_FORMAT_FLOAT2, sizeof(glm::vec2), primitive.texCoords.size()));
-			std::memcpy(texCoordBuffer, primitive.texCoords.data(), primitive.texCoords.size() * sizeof(glm::vec2));
+			auto texCoordBuffer = static_cast<Vec3A*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE,
+				2, RTC_FORMAT_FLOAT2, sizeof(Vec3A), primitive.texCoords.size()));
+
+			for (std::size_t i = 0; i < primitive.texCoords.size(); ++i) {
+				texCoordBuffer[i].x = primitive.texCoords[i].x;
+				texCoordBuffer[i].y = primitive.texCoords[i].y;
+			}
 		}
 
 		rtcCommitGeometry(mesh);
@@ -233,7 +256,7 @@ void PathTracer::setLight(const DirectionalLight& light) {
 void PathTracer::traceDebugImage() {
 	std::vector<glm::vec3> colors(debugImage.size(), glm::vec3(0.0f));
 
-	const int numSamples = 200;
+	const int numSamples = 500;
 	for (int k = 0; k < numSamples; ++k) {
 
 		#pragma omp parallel for
@@ -284,7 +307,7 @@ glow::SharedTexture2D PathTracer::getDebugTexture() const {
 }
 
 glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight, int depth) {
-	const int maxDepth = 5;
+	const int maxDepth = 4;
 	if (depth > maxDepth) {
 		return weight * glm::vec3{ 0.0f, 0.0f, 0.0f };
 	}
@@ -307,6 +330,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 	rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
 		rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, &normal[0], 3);
 	normal = glm::normalize(normal);
+	auto faceNormal = normal;
 	
 	auto material = materials[rayhit.hit.geomID];
 	glm::vec3 albedo;
@@ -337,7 +361,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		albedo = gammaToLinear(material.baseColor);
 	}
 
-	Ray occluderRay(surfacePoint + normal * 0.001f, glm::normalize(-light->direction), 0.0f, std::numeric_limits<float>::infinity());
+	Ray occluderRay(surfacePoint + normal * 0.01f, glm::normalize(-light->direction), 0.0f, std::numeric_limits<float>::infinity());
 	RTCIntersectContext occluderContext;
 	rtcInitIntersectContext(&occluderContext);
 	rtcOccluded1(scene, &occluderContext, &occluderRay);
@@ -358,36 +382,49 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		directIllumination = weight * shading * std::max(glm::dot(normal, L), 0.0f) * gammaToLinear(light->color) * light->power;
 	}
 
-	float Pr = std::max(diffuse.x + specular.x, std::max(diffuse.y + specular.y, diffuse.z + specular.z));
-	float Pd = Pr * (diffuse.x + diffuse.y + diffuse.z) / (diffuse.x + diffuse.y + diffuse.z + specular.x + specular.y + specular.z);
-	float Ps = Pr * (specular.x + specular.y + specular.z) / (diffuse.x + diffuse.y + diffuse.z + specular.x + specular.y + specular.z);
-	float randVar = uniformDist(randEngine);
-
 	glm::vec3 indirectIllumination(0.0f);
-	if (randVar < Pd) {
-		glm::vec3 brdf = brdfLambert(diffuse);
+	float rho = std::max(weight.x, std::max(weight.y, weight.z));
+	if (uniformDist(randEngine) <= rho) {
+		float diffLum = glm::dot(diffuse, glm::vec3(0.2126f, 0.7152f, 0.0722f));
+		float specLum = glm::dot(specular, glm::vec3(0.2126f, 0.7152f, 0.0722f));
+		float Pd = diffLum / (diffLum + specLum);
+		float Ps = specLum / (diffLum + specLum);
 
-		glm::vec3 wi = sampleCosineHemisphere(normal);
-		float pdf = pdfCosineHemisphere(normal, wi);
+		if (uniformDist(randEngine) <= Pd) {
+			glm::vec3 brdf = brdfLambert(diffuse);
+			glm::vec3 wi = sampleCosineHemisphere(normal);
+			while (glm::dot(wi, faceNormal) <= 0.0f) {
+				wi = sampleCosineHemisphere(normal);
+			}
+			float pdf = pdfCosineHemisphere(normal, wi);
 
-		glm::vec3 newWeight = weight * std::max(glm::dot(normal, wi), 0.0f) * brdf / (pdf * Pd);
-		indirectIllumination += newWeight * trace(surfacePoint, wi, newWeight, depth + 1);
-	}
-	else if (randVar < Pd + Ps) {
-		glm::vec3 E = glm::vec3(rayhit.ray.org_x, rayhit.ray.org_y, rayhit.ray.org_z);
-		glm::vec3 L = glm::normalize(-light->direction);
-		glm::vec3 V = glm::normalize(E - surfacePoint);
-		glm::vec3 brdf = brdfCookTorrenceGGX(normal, V, L, glm::max(0.01f, roughness), specular);
+			float dotNL = glm::dot(normal, wi);
+			assert(dotNL >= 0.0f);
 
-		glm::vec3 wi = sampleGGX(normal, glm::max(0.01f, roughness));
-		float pdf = pdfGGX(normal, wi, glm::max(0.01f, roughness));
+			glm::vec3 newWeight = weight * dotNL * brdf / (pdf * rho * Pd);
+			indirectIllumination = newWeight * trace(surfacePoint, wi, newWeight, depth + 1);
+		}
+		else {
+			glm::vec3 V = glm::normalize(glm::vec3(-rayhit.ray.dir_x, -rayhit.ray.dir_y, -rayhit.ray.dir_z));
+			glm::vec3 R = glm::normalize(glm::reflect(-V, normal));
+			glm::vec3 wi = sampleGGX(R, glm::max(0.01f, roughness));
+			while (glm::dot(wi, faceNormal) <= 0.0f) {
+				wi = sampleGGX(R, glm::max(0.01f, roughness));
+			}
+			float pdf = pdfGGX(R, wi, glm::max(0.01f, roughness));
 
-		glm::vec3 newWeight = weight * std::max(glm::dot(normal, wi), 0.0f) * brdf / (pdf * Ps);
-		indirectIllumination += newWeight * trace(surfacePoint, wi, newWeight, depth + 1);
+			glm::vec3 brdf = brdfCookTorrenceGGX(normal, V, wi, glm::max(0.01f, roughness), specular);
+
+			float dotNL = glm::dot(normal, wi);
+			assert(dotNL >= 0.0f);
+
+			glm::vec3 newWeight = weight * dotNL * brdf / (pdf * rho * Ps);
+			indirectIllumination = newWeight * trace(surfacePoint, wi, newWeight, depth + 1);
+		}
 	}
 	else {
 		// Absorb
 	}
 
-	return glm::clamp(directIllumination + indirectIllumination, 0.0f, 15.0f);
+	return directIllumination + indirectIllumination;
 }

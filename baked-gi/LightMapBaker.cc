@@ -70,7 +70,7 @@ LightMapBaker::LightMapBaker(const PathTracer& pathTracer) : pathTracer(&pathTra
 }
 
 SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int height) {
-	SharedImage lightMap = std::make_shared<Image>(width, height, 3, glow::ColorSpace::Linear);
+	SharedImage lightMap = std::make_shared<Image>(width, height, 3, GL_FLOAT, glow::ColorSpace::Linear);
     
     glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
     glm::vec2 pixelSize = glm::vec2(1.0f) / glm::vec2(static_cast<float>(width), static_cast<float>(height)); 
@@ -98,7 +98,7 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
         
         #pragma omp parallel for
         for (int stepY = 0; stepY < numStepsX; ++stepY) {
-            for (int stepX = 0; stepX < numStepsY; ++stepX) {
+            for (int stepX = 0; stepX < numStepsX; ++stepX) {
                 float x = minX + stepX * pixelSize.x;
                 float y = minY + stepY * pixelSize.y;
                 
@@ -111,16 +111,12 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
                     + v1 * barycentric.y
                     + v2 * (1.0f - barycentric.x - barycentric.y);
                 glm::vec3 worldPos = primitive.transform * glm::vec4(localPos, 1.0f);
-                
-                glow::info() << worldPos.x << "  " << worldPos.y << "  " << worldPos.z;
-                
+  
                 glm::vec3 localNormal = n0 * barycentric.x
                     + n1 * barycentric.y
                     + n2 * (1.0f - barycentric.x - barycentric.y);
-                glm::vec3 worldNormal = glm::normalize(normalMatrix * localNormal);
-                
-                glow::info() << worldNormal.x << "  " << worldNormal.y << "  " << worldNormal.z;
-                
+                glm::vec3 worldNormal = glm::normalize(normalMatrix * glm::normalize(localNormal));
+
                 glm::vec3 irradiance(0.0f);
                 const int numSamples = 100;
                 for (int sample = 0; sample < numSamples; ++sample) {
@@ -129,12 +125,12 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
                 }
                 irradiance /= numSamples;
                 
+                irradiance = irradiance / (irradiance + glm::vec3(1.0f)); // Tone mapping
+                
                 int imageX = static_cast<int>(x * width);
                 int imageY = static_cast<int>(y * height);
                 
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3] = (unsigned char) (irradiance.x * 255.0f);
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 1] = (unsigned char) (irradiance.y * 255.0f);
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 2] = (unsigned char) (irradiance.z * 255.0f);
+                lightMap->getDataPtr<glm::vec3>()[imageX + imageY * width] = irradiance;
             }
         }
     }

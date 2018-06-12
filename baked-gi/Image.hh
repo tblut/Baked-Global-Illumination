@@ -10,10 +10,12 @@
 class Image {
 public:
 	Image(int width, int height, int channels, glow::ColorSpace colorSpace = glow::ColorSpace::sRGB);
+    Image(int width, int height, int channels, GLenum dataType, glow::ColorSpace colorSpace = glow::ColorSpace::sRGB);
 
 	int getWidth() const;
 	int getHeight() const;
 	int getChannels() const;
+    GLenum getDataType() const;
 	unsigned char* getDataPtr();
 	const unsigned char* getDataPtr() const;
 
@@ -43,6 +45,7 @@ private:
 	GLenum wrapS = GL_REPEAT;
 	GLenum wrapT = GL_REPEAT;
 	glow::ColorSpace colorSpace;
+    GLenum dataType;
 };
 
 using SharedImage = std::shared_ptr<Image>;

@@ -7,11 +7,25 @@
 #include <glm/common.hpp>
 
 #include <algorithm>
+#include <cassert>
 
 Image::Image(int width, int height, int channels, glow::ColorSpace colorSpace)
 		: width(width), height(height), channels(channels),
-		  data(width * height * channels), colorSpace(colorSpace) {
+		  data(width * height * channels), dataType(GL_UNSIGNED_BYTE), colorSpace(colorSpace) {
 
+}
+
+Image::Image(int width, int height, int channels, GLenum dataType, glow::ColorSpace colorSpace)
+		: width(width), height(height), channels(channels),
+		  dataType(dataType), colorSpace(colorSpace) {
+    assert(!(dataType == GL_FLOAT && colorSpace == glow::ColorSpace::sRGB));
+    
+    if (dataType == GL_UNSIGNED_BYTE) {
+        data.resize(width * height * channels);
+    }
+    else if (dataType == GL_FLOAT) {
+        data.resize(width * height * channels * 4);
+    }
 }
 
 int Image::getWidth() const {
@@ -24,6 +38,10 @@ int Image::getHeight() const {
 
 int Image::getChannels() const {
 	return channels;
+}
+
+GLenum Image::getDataType() const {
+    return dataType;
 }
 
 unsigned char* Image::getDataPtr() {
@@ -68,10 +86,15 @@ glm::vec4 Image::sample(glm::vec2 uv) const {
 	glm::vec4 color01(0.0f);
 	glm::vec4 color11(0.0f);
 
-	for (int i = 0; i < channels; ++i) color00[i] = getDataPtr<unsigned char>()[index00 + i] / 255.0f;
-	for (int i = 0; i < channels; ++i) color10[i] = getDataPtr<unsigned char>()[index10 + i] / 255.0f;
-	for (int i = 0; i < channels; ++i) color01[i] = getDataPtr<unsigned char>()[index01 + i] / 255.0f;
-	for (int i = 0; i < channels; ++i) color11[i] = getDataPtr<unsigned char>()[index11 + i] / 255.0f;
+    float scale = 1.0f / 255.0f;
+    if (dataType == GL_FLOAT) {
+        scale = 1.0f;
+    }
+    
+	for (int i = 0; i < channels; ++i) color00[i] = getDataPtr<unsigned char>()[index00 + i] * scale;
+	for (int i = 0; i < channels; ++i) color10[i] = getDataPtr<unsigned char>()[index10 + i] * scale;
+	for (int i = 0; i < channels; ++i) color01[i] = getDataPtr<unsigned char>()[index01 + i] * scale;
+	for (int i = 0; i < channels; ++i) color11[i] = getDataPtr<unsigned char>()[index11 + i] * scale;
 
 	float dx = uv.x * width - coord00.x;
 	float dy = uv.y * height - coord00.y;
@@ -83,8 +106,9 @@ glm::vec4 Image::sample(glm::vec2 uv) const {
 glow::SharedTexture2D Image::createTexture() const {
 	auto surface = std::make_shared<glow::SurfaceData>();
 	auto dataPtr = getDataPtr<char>();
-	surface->setData(std::vector<char>(dataPtr, dataPtr + width * height * channels));
-	surface->setType(GL_UNSIGNED_BYTE);
+    int channelStride = (dataType == GL_FLOAT) ? 4 : 1;
+	surface->setData(std::vector<char>(dataPtr, dataPtr + width * height * channels * channelStride));
+	surface->setType(dataType);
 	surface->setMipmapLevel(0);
 	surface->setWidth(width);
 	surface->setHeight(height);
@@ -97,18 +121,27 @@ glow::SharedTexture2D Image::createTexture() const {
 	GLenum iformatRGB;
 	GLenum iformatRGBA;
 
-	switch (colorSpace)
-	{
-	case glow::ColorSpace::Linear:
-		iformatRGB = GL_RGB;
-		iformatRGBA = GL_RGBA;
-		break;
-	case glow::ColorSpace::sRGB:
-	default:
-		iformatRGB = GL_SRGB;
-		iformatRGBA = GL_SRGB_ALPHA;
-		break;
-	}
+    if (dataType == GL_UNSIGNED_BYTE) {
+        switch (colorSpace)
+        {
+        case glow::ColorSpace::Linear:
+            iformatRGB = GL_RGB;
+            iformatRGBA = GL_RGBA;
+            break;
+        case glow::ColorSpace::sRGB:
+        default:
+            iformatRGB = GL_SRGB;
+            iformatRGBA = GL_SRGB_ALPHA;
+            break;
+        }
+    }
+    else if (dataType == GL_FLOAT) {
+        iformatRGB = GL_RGB32F;
+        iformatRGBA = GL_RGBA32F;
+    }
+    else {
+        glow::error() << "Unsupported data type for image";
+    }
 
 	if (channels == 1) {
 		surface->setFormat(GL_RGB);

@@ -6,7 +6,7 @@ Set the correct path to Embree 3.1 and add the bin/ directory in the Embree inst
 
 ### Linux
 
-TODO
+Open a terminal in the root directory of the project and run "cmake CMakeLists.txt", "make -j" and then "./baked-gi/baked-gi"
 
 ## Library licenses
 

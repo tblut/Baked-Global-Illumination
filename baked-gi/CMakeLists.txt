@@ -3,11 +3,11 @@ project(baked-gi)
 
 file(GLOB SOURCES "*.cc" "*.hh")
 file(GLOB SHADERS "shaders/*.*sh" "shaders/*.glsl")
-file(GLOB TINY_GLTF_SOURCES "tinygltf/*.h" "tinygltf/*.hpp")
+file(GLOB THIRD_PARTY_SOURCES "third-party/*.h" "third-party/*.hpp")
 
 source_group("Source" FILES ${SOURCES})
 source_group("Shaders" FILES ${SHADERS})
-source_group("Source\\TinyGLTF" FILES ${TINY_GLTF_SOURCES})
+source_group("Source\\ThirdParty" FILES ${THIRD_PARTY_SOURCES})
 
 FIND_PACKAGE(embree 3.0 REQUIRED)
 INCLUDE_DIRECTORIES(${EMBREE_INCLUDE_DIRS})
@@ -19,5 +19,5 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-add_executable(baked-gi ${SOURCES} ${SHADERS} ${TINY_GLTF_SOURCES})
+add_executable(baked-gi ${SOURCES} ${SHADERS} ${THIRD_PARTY_SOURCES})
 target_link_libraries(baked-gi PUBLIC glow glow-extras glfw AntTweakBar assimp ${EMBREE_LIBRARY})

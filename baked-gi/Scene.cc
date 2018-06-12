@@ -1,6 +1,6 @@
 #include "Scene.hh"
 #include "PathTracer.hh"
-#include "tinygltf/tiny_gltf.h"
+#include "third-party/tiny_gltf.h"
 
 #include <glow/fwd.hh>
 #include <glow/common/str_utils.hh>
@@ -126,7 +126,16 @@ namespace {
 
 		it = primitive.attributes.find("TEXCOORD_0");
 		if (it != primitive.attributes.end()) {
-			p.texCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
+			auto texCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
+
+			it = primitive.attributes.find("TEXCOORD_1");
+			if (it != primitive.attributes.end()) {
+				p.texCoords = std::move(texCoords);
+				p.lightMapTexCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
+			}
+			else {
+				p.lightMapTexCoords = std::move(texCoords);
+			}
 		}
 
 		if (primitive.indices == -1) {
@@ -211,6 +220,7 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 
 			for (const auto& primitive : mesh.primitives) {
 				Primitive p = createPrimitive(primitive, model, images);
+				p.name = mesh.name;
 				p.transform = transform;
 				primitives.push_back(std::move(p));
 			}

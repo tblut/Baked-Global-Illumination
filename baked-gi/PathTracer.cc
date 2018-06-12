@@ -271,7 +271,6 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 	rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
 		rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, &normal[0], 3);
 	normal = glm::normalize(normal);
-	auto faceNormal = normal;
 
 	auto material = materials[rayhit.hit.geomID];
 	glm::vec3 albedo;
@@ -280,14 +279,16 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		alignas(16) glm::vec2 texCoord;
 		rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
 			rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 2, &texCoord[0], 2);
-		albedo = gammaToLinear(glm::vec3(material.albedoMap->sample(texCoord))) * gammaToLinear(material.baseColor);
 
+		albedo = gammaToLinear(glm::vec3(material.albedoMap->sample(texCoord))) * gammaToLinear(material.baseColor);
 		roughness *= material.roughnessMap->sample(texCoord).x;
 
+		/*
 		alignas(16) glm::vec4 tangent;
 		rtcInterpolate0(rtcGetGeometry(scene, rayhit.hit.geomID), rayhit.hit.primID,
 			rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 1, &tangent[0], 4);
 
+		
 		glm::vec3 normalMapN = glm::vec3(material.normalMap->sample({ texCoord[0], texCoord[1] }));
 		normalMapN.x = normalMapN.x * 2.0f - 1.0f;
 		normalMapN.y = normalMapN.y * 2.0f - 1.0f;
@@ -297,6 +298,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		glm::vec3 B = glm::normalize(glm::cross(N, glm::vec3(T)));
 		glm::mat3 TBN = glm::mat3(T, B, N);
 		normal = glm::normalize(TBN * normalMapN);
+		*/
 	}
 	else {
 		albedo = gammaToLinear(material.baseColor);
@@ -333,9 +335,6 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		if (uniformDist(randEngine) <= Pd) {
 			glm::vec3 brdf = brdfLambert(diffuse);
 			glm::vec3 wi = sampleCosineHemisphere(normal);
-			while (glm::dot(wi, faceNormal) <= 0.0f) {
-				wi = sampleCosineHemisphere(normal);
-			}
 			float pdf = pdfCosineHemisphere(normal, wi);
 
 			float dotNL = glm::dot(normal, wi);
@@ -348,9 +347,6 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 			glm::vec3 V = glm::normalize(glm::vec3(-rayhit.ray.dir_x, -rayhit.ray.dir_y, -rayhit.ray.dir_z));
 			glm::vec3 R = glm::normalize(glm::reflect(-V, normal));
 			glm::vec3 wi = sampleGGX(R, glm::max(0.01f, roughness));
-			while (glm::dot(wi, faceNormal) <= 0.0f) {
-				wi = sampleGGX(R, glm::max(0.01f, roughness));
-			}
 			float pdf = pdfGGX(R, wi, glm::max(0.01f, roughness));
 
 			glm::vec3 brdf = brdfCookTorrenceGGX(normal, V, wi, glm::max(0.01f, roughness), specular);
@@ -368,7 +364,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 
 	glm::vec3 illumination = directIllumination + indirectIllumination;
 	if (depth >= clampDepth) {
-		illumination = glm::clamp(illumination, 0.0f, clampLuminance);
+		illumination = glm::clamp(illumination, 0.0f, clampRadiance);
 	}
 
 	return illumination;
@@ -386,6 +382,6 @@ void PathTracer::setClampDepth(unsigned int depth) {
 	this->clampDepth = static_cast<int>(depth);
 }
 
-void PathTracer::setClampLuminance(float luminance) {
-	this->clampLuminance = luminance;
+void PathTracer::setClampRadiance(float radiance) {
+	this->clampRadiance = radiance;
 }

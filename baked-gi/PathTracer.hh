@@ -20,7 +20,7 @@ public:
 	void setLight(const DirectionalLight& light);
 	void setMaxPathDepth(unsigned int depth);
 	void setClampDepth(unsigned int depth);
-	void setClampLuminance(float luminance);
+	void setClampRadiance(float radiance);
 
 private:
 	struct Triangle {
@@ -44,5 +44,5 @@ private:
 	const DirectionalLight* light = nullptr;
 	int maxPathDepth = 5;
 	int clampDepth = 0;
-	float clampLuminance = 25.0f;
+	float clampRadiance = 25.0f;
 };

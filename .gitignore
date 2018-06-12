@@ -1,3 +1,5 @@
+# ignore the binary
+baked-gi/baked-gi
 
 # Created by https://www.gitignore.io/api/++,qt,c,cmake,visualstudiocode,visualstudio,windows,linux,tortoisegit,sublimetext,osx,ninja,eclipse,kate,python
 

@@ -37,11 +37,11 @@ void BakedGIApp::init() {
 
 	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox_notex.glb");
 
-	pipeline = std::make_unique<RenderPipeline>();
+	pipeline.reset(new RenderPipeline());
 	pipeline->attachCamera(*getCamera());
 	pipeline->attachLight(scene.getSun());
 
-	debugPathTracer = std::make_unique<DebugPathTracer>();
+	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
 

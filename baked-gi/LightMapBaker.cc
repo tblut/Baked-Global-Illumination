@@ -74,11 +74,11 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
     
     glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
     glm::vec2 pixelSize = glm::vec2(1.0f) / glm::vec2(static_cast<float>(width), static_cast<float>(height)); 
-    
-    for (std::size_t i = 0; i < primitive.lightMapTexCoords.size(); i += 3) {
-        glm::vec2 t0 = primitive.lightMapTexCoords[i];
-        glm::vec2 t1 = primitive.lightMapTexCoords[i + 1];
-        glm::vec2 t2 = primitive.lightMapTexCoords[i + 2];
+
+    for (std::size_t i = 0; i < primitive.indices.size(); i += 3) {
+        glm::vec2 t0 = primitive.lightMapTexCoords[primitive.indices[i]];
+        glm::vec2 t1 = primitive.lightMapTexCoords[primitive.indices[i + 1]];
+        glm::vec2 t2 = primitive.lightMapTexCoords[primitive.indices[i + 2]];
         
         glm::vec3 v0 = primitive.positions[primitive.indices[i]];
         glm::vec3 v1 = primitive.positions[primitive.indices[i + 1]];
@@ -112,13 +112,17 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
                     + v2 * (1.0f - barycentric.x - barycentric.y);
                 glm::vec3 worldPos = primitive.transform * glm::vec4(localPos, 1.0f);
                 
+                glow::info() << worldPos.x << "  " << worldPos.y << "  " << worldPos.z;
+                
                 glm::vec3 localNormal = n0 * barycentric.x
                     + n1 * barycentric.y
                     + n2 * (1.0f - barycentric.x - barycentric.y);
-                glm::vec3 worldNormal = normalMatrix * localNormal;
+                glm::vec3 worldNormal = glm::normalize(normalMatrix * localNormal);
+                
+                glow::info() << worldNormal.x << "  " << worldNormal.y << "  " << worldNormal.z;
                 
                 glm::vec3 irradiance(0.0f);
-                const int numSamples = 16;
+                const int numSamples = 100;
                 for (int sample = 0; sample < numSamples; ++sample) {
                     glm::vec3 dir = sampleCosineHemisphere(worldNormal);
                     irradiance += pathTracer->trace(worldPos, dir);
@@ -128,12 +132,12 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
                 int imageX = static_cast<int>(x * width);
                 int imageY = static_cast<int>(y * height);
                 
-                glow::info() << imageX << "  " << imageY;
-                
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3] = irradiance.x / 255.0f;
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 1] = irradiance.y / 255.0f;
-                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 2] = irradiance.z / 255.0f;
+                lightMap->getDataPtr()[(imageX + imageY * width) * 3] = (unsigned char) (irradiance.x * 255.0f);
+                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 1] = (unsigned char) (irradiance.y * 255.0f);
+                lightMap->getDataPtr()[(imageX + imageY * width) * 3 + 2] = (unsigned char) (irradiance.z * 255.0f);
             }
         }
     }
+    
+    return lightMap;
 }

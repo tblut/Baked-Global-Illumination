@@ -47,7 +47,7 @@ void BakedGIApp::init() {
 	scene.buildPathTracerScene(*debugPathTracer);
     
     lightMapBaker.reset(new LightMapBaker(*debugPathTracer));
-    lightMapImage = lightMapBaker->bake(scene.primitives[0], 128, 128);
+    lightMapImage = lightMapBaker->bake(scene.primitives[2], 128, 128);
     lightMap = lightMapImage->createTexture();
     pipeline->setDebugTexture(lightMap, DebugImageLocation::TopRight);
 

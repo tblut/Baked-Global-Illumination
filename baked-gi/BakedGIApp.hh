@@ -22,5 +22,7 @@ private:
 	std::unique_ptr<DebugPathTracer> debugPathTracer;
 	bool showDebugImage = false;
 	unsigned int samplesPerPixel = 100;
-	unsigned int maxPathDepth = 5;
+	unsigned int maxPathDepth = 3;
+	unsigned int clampDepth = 0;
+	float clampLuminance = 50.0f;
 };

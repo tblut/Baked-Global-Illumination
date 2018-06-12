@@ -53,11 +53,15 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "SPP", TW_TYPE_UINT32, &samplesPerPixel, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Max Path Depth", TW_TYPE_UINT32, &maxPathDepth, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Clamp Luminance", TW_TYPE_FLOAT, &clampLuminance, "group=pathtrace");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setSamplesPerPixel(samplesPerPixel);
 	debugPathTracer->setMaxPathDepth(maxPathDepth);
+	debugPathTracer->setClampDepth(clampDepth);
+	debugPathTracer->setClampLuminance(clampLuminance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
 	scene.render(*pipeline);
 }

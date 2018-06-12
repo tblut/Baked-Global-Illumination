@@ -14,7 +14,7 @@ namespace {
 void DebugPathTracer::traceDebugImage() {
 	std::vector<glm::vec3> colors(debugImage.size(), glm::vec3(0.0f));
 
-	for (int k = 0; k < samplesPerPixel; ++k) {
+	for (unsigned int k = 0; k < samplesPerPixel; ++k) {
 
 		#pragma omp parallel for
 		for (int y = 0; y < debugImageHeight; ++y) {

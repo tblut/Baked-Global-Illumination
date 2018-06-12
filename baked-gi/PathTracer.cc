@@ -302,7 +302,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		albedo = gammaToLinear(material.baseColor);
 	}
 
-	Ray occluderRay(surfacePoint + normal * 0.01f, glm::normalize(-light->direction), 0.0f, std::numeric_limits<float>::infinity());
+	Ray occluderRay(surfacePoint + normal * 0.001f, glm::normalize(-light->direction), 0.0f, std::numeric_limits<float>::infinity());
 	RTCIntersectContext occluderContext;
 	rtcInitIntersectContext(&occluderContext);
 	rtcOccluded1(scene, &occluderContext, &occluderRay);
@@ -312,9 +312,8 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 
 	glm::vec3 directIllumination(0.0f);
 	if (occluderRay.tfar >= 0.0f) {
-		glm::vec3 E = glm::vec3(rayhit.ray.org_x, rayhit.ray.org_y, rayhit.ray.org_z);
 		glm::vec3 L = glm::normalize(-light->direction);
-		glm::vec3 V = glm::normalize(E - surfacePoint);
+		glm::vec3 V = glm::normalize(glm::vec3(-rayhit.ray.dir_x, -rayhit.ray.dir_y, -rayhit.ray.dir_z));
 
 		glm::vec3 shadingDiffuse = brdfLambert(diffuse);
 		glm::vec3 shadingSpecular = brdfCookTorrenceGGX(normal, V, L, std::max(0.01f, roughness), specular);
@@ -367,7 +366,12 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		// Absorb
 	}
 
-	return directIllumination + indirectIllumination;
+	glm::vec3 illumination = directIllumination + indirectIllumination;
+	if (depth >= clampDepth) {
+		illumination = glm::clamp(illumination, 0.0f, clampLuminance);
+	}
+
+	return illumination;
 }
 
 void PathTracer::setLight(const DirectionalLight& light) {
@@ -375,5 +379,13 @@ void PathTracer::setLight(const DirectionalLight& light) {
 }
 
 void PathTracer::setMaxPathDepth(unsigned int depth) {
-	this->maxPathDepth = depth;
+	this->maxPathDepth = static_cast<int>(depth);
+}
+
+void PathTracer::setClampDepth(unsigned int depth) {
+	this->clampDepth = static_cast<int>(depth);
+}
+
+void PathTracer::setClampLuminance(float luminance) {
+	this->clampLuminance = luminance;
 }

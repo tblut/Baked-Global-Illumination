@@ -19,6 +19,8 @@ public:
 	glm::vec3 trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight = glm::vec3(1.0f), int depth = 0);
 	void setLight(const DirectionalLight& light);
 	void setMaxPathDepth(unsigned int depth);
+	void setClampDepth(unsigned int depth);
+	void setClampLuminance(float luminance);
 
 private:
 	struct Triangle {
@@ -31,14 +33,16 @@ private:
 		SharedImage albedoMap;
 		SharedImage normalMap;
 		SharedImage roughnessMap;
-		glm::vec3 baseColor = glm::vec3(1.0f);
-		float roughness = 0.8f;
-		float metallic = 0.0f;
+		glm::vec3 baseColor;
+		float roughness;
+		float metallic;
 	};
 
 	RTCDevice device = nullptr;
 	RTCScene scene = nullptr;
 	std::unordered_map<unsigned int, Material> materials;
-	const DirectionalLight* light;
-	unsigned int maxPathDepth = 5;
+	const DirectionalLight* light = nullptr;
+	int maxPathDepth = 5;
+	int clampDepth = 0;
+	float clampLuminance = 25.0f;
 };

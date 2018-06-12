@@ -22,14 +22,14 @@ public:
 
 	DirectionalLight& getSun();
 	const DirectionalLight& getSun() const;
-	
+	std::vector<Primitive> primitives;
 private:
 	// Common
 	DirectionalLight sun;
 
 	// Offline rendering
 	std::vector<SharedImage> images;
-	std::vector<Primitive> primitives;
+	
 
 	// Realtime rendering
 	std::vector<glow::SharedTexture2D> textures;

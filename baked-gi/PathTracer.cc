@@ -248,7 +248,7 @@ void PathTracer::buildScene(const std::vector<Primitive>& primitives) {
 	rtcCommitScene(scene);
 }
 
-glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight, int depth) {
+glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight, int depth) const {
 	if (depth > maxPathDepth) {
 		return glm::vec3(0.0f);
 	}
@@ -272,7 +272,7 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, &normal[0], 3);
 	normal = glm::normalize(normal);
 
-	auto material = materials[rayhit.hit.geomID];
+	const Material& material = materials.at(rayhit.hit.geomID);
 	glm::vec3 albedo;
 	float roughness = material.roughness;
 	if (material.albedoMap) {

@@ -12,7 +12,7 @@ class LightMapBaker {
 public:
 	LightMapBaker(const PathTracer& pathTracer);
 
-	SharedImage bakeLightMap(const Primitive& primitive, int width, int height);
+	SharedImage bake(const Primitive& primitive, int width, int height);
 
 private:
 	const PathTracer* pathTracer;

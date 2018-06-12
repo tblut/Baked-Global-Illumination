@@ -15,15 +15,16 @@
 #include <glow-extras/assimp/Importer.hh>
 #include <glow-extras/debugging/DebugRenderer.hh>
 #include <AntTweakBar.h>
-
 #include <embree3/rtcore.h>
-#include "tinygltf/tiny_gltf.h"
 
 namespace {
 	void debugTrace(void* clientData) {
 		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->traceDebugImage();
 	}
+	
+	SharedImage lightMapImage;
+    glow::SharedTexture2D lightMap;
 }
 
 void BakedGIApp::init() {
@@ -44,6 +45,11 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
+    
+    lightMapBaker.reset(new LightMapBaker(*debugPathTracer));
+    lightMapImage = lightMapBaker->bake(scene.primitives[0], 128, 128);
+    lightMap = lightMapImage->createTexture();
+    pipeline->setDebugTexture(lightMap, DebugImageLocation::TopRight);
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");

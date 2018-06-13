@@ -2,6 +2,7 @@
 
 in vec3 vWorldPos;
 in vec3 vNormal;
+in vec2 vLightMapTexCoord;
 
 out vec3 fColor;
 out vec3 fBrightColor;
@@ -14,13 +15,17 @@ uniform vec3 uAmbientColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 
+uniform sampler2D uTextureIrradiance;
+
 void main() {
 	vec3 N = normalize(vNormal);
 	vec3 V = normalize(uCamPos - vWorldPos);
 	vec3 L = uLightDir;
 
 	// Shading
-	fColor = uAmbientColor * uBaseColor + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;
+	vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
+	fColor = //uAmbientColor * uBaseColor +
+		irradiance * uBaseColor + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;
 
 	// Extract brightness for bloom
 	float brightness = dot(fColor, vec3(0.2126, 0.7152, 0.0722));

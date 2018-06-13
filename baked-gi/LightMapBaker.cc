@@ -63,6 +63,10 @@ namespace {
 
 		return glm::normalize(x * xAxis + y * yAxis + z * normal);
 	}
+
+	float pdfCosineHemisphere(const glm::vec3& normal, const glm::vec3& wi) {
+		return glm::dot(normal, wi) / glm::pi<float>();
+	}
 }
 
 LightMapBaker::LightMapBaker(const PathTracer& pathTracer) : pathTracer(&pathTracer) {
@@ -70,7 +74,7 @@ LightMapBaker::LightMapBaker(const PathTracer& pathTracer) : pathTracer(&pathTra
 }
 
 SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int height) {
-	SharedImage lightMap = std::make_shared<Image>(width, height, 3, GL_FLOAT, glow::ColorSpace::Linear);
+	SharedImage lightMap = std::make_shared<Image>(width, height, GL_RGB32F);
     
     glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
     glm::vec2 pixelSize = glm::vec2(1.0f) / glm::vec2(static_cast<float>(width), static_cast<float>(height)); 
@@ -93,44 +97,45 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
         float maxX = std::max(t0.x, std::max(t1.x, t2.x));
         float maxY = std::max(t0.y, std::max(t1.y, t2.y));
         
-        int numStepsX = (maxX - minX) / pixelSize.x;
-        int numStepsY = (maxY - minY) / pixelSize.y;
+        int numStepsX = static_cast<int>(std::ceil((maxX - minX) / pixelSize.x));
+        int numStepsY = static_cast<int>(std::ceil((maxY - minY) / pixelSize.y));
         
         #pragma omp parallel for
-        for (int stepY = 0; stepY < numStepsX; ++stepY) {
+        for (int stepY = 0; stepY < numStepsY; ++stepY) {
             for (int stepX = 0; stepX < numStepsX; ++stepX) {
                 float x = minX + stepX * pixelSize.x;
                 float y = minY + stepY * pixelSize.y;
-                
-                glm::vec2 barycentric = getBarycentricCoords(glm::vec2(x, y), t0, t1, t2);
+
+                glm::vec2 barycentric = getBarycentricCoords(glm::vec2(x, y) + pixelSize / 2.0f, t0 + pixelSize / 2.0f, t1 + pixelSize / 2.0f, t2 + pixelSize / 2.0f);
                 if (!isPointInTriangle(barycentric)) {
                     continue;
                 }
 
-                glm::vec3 localPos = v0 * barycentric.x
-                    + v1 * barycentric.y
-                    + v2 * (1.0f - barycentric.x - barycentric.y);
-                glm::vec3 worldPos = primitive.transform * glm::vec4(localPos, 1.0f);
-  
-                glm::vec3 localNormal = n0 * barycentric.x
-                    + n1 * barycentric.y
-                    + n2 * (1.0f - barycentric.x - barycentric.y);
-                glm::vec3 worldNormal = glm::normalize(normalMatrix * glm::normalize(localNormal));
-
                 glm::vec3 irradiance(0.0f);
-                const int numSamples = 100;
+                const int numSamples = 5000;
                 for (int sample = 0; sample < numSamples; ++sample) {
+					float xx = x + pixelSize.x / 2.0f + uniformDist(randEngine) - 0.5f;
+					float yy = y + pixelSize.y / 2.0f + uniformDist(randEngine) - 0.5f;
+
+					glm::vec2 bary = getBarycentricCoords(glm::vec2(xx, yy), t0 + pixelSize / 2.0f, t1 + pixelSize / 2.0f, t2 + pixelSize / 2.0f);
+
+					glm::vec3 localPos = v0 * bary.x + v1 * bary.y + v2 * (1.0f - bary.x - bary.y);
+					glm::vec3 worldPos = primitive.transform * glm::vec4(localPos, 1.0f);
+
+					glm::vec3 localNormal = n0 * bary.x + n1 * bary.y + n2 * (1.0f - bary.x - bary.y);
+					glm::vec3 worldNormal = glm::normalize(normalMatrix * localNormal);
+
                     glm::vec3 dir = sampleCosineHemisphere(worldNormal);
-                    irradiance += pathTracer->trace(worldPos, dir);
+					irradiance += pathTracer->trace(worldPos, dir) / pdfCosineHemisphere(worldNormal, dir);
                 }
                 irradiance /= numSamples;
                 
-                irradiance = irradiance / (irradiance + glm::vec3(1.0f)); // Tone mapping
+                //irradiance = irradiance / (irradiance + glm::vec3(1.0f)); // Tone mapping
                 
                 int imageX = static_cast<int>(x * width);
                 int imageY = static_cast<int>(y * height);
                 
-                lightMap->getDataPtr<glm::vec3>()[imageX + imageY * width] = irradiance;
+				lightMap->setPixel<glm::vec3>({ imageX, imageY }, irradiance);
             }
         }
     }

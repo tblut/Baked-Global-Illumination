@@ -76,6 +76,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 					p.setTexture("uTextureColor", mesh.material.colorMap);
 					p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
 					p.setTexture("uTextureNormal", mesh.material.normalMap);
+					p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 
 					mesh.vao->bind().draw();
 				}
@@ -93,6 +94,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 					p.setUniform("uMetallic", mesh.material.metallic);
 					p.setUniform("uRoughness", mesh.material.roughness);
+					p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 
 					mesh.vao->bind().draw();
 				}

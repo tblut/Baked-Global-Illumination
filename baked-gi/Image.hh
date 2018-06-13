@@ -9,13 +9,13 @@
 
 class Image {
 public:
-	Image(int width, int height, int channels, glow::ColorSpace colorSpace = glow::ColorSpace::sRGB);
-    Image(int width, int height, int channels, GLenum dataType, glow::ColorSpace colorSpace = glow::ColorSpace::sRGB);
+    Image(int width, int height, GLenum format = GL_SRGB);
 
 	int getWidth() const;
 	int getHeight() const;
 	int getChannels() const;
-    GLenum getDataType() const;
+	int getBitsPerPixel() const;
+    GLenum getFormat() const;
 	unsigned char* getDataPtr();
 	const unsigned char* getDataPtr() const;
 
@@ -33,6 +33,16 @@ public:
 		return reinterpret_cast<const T*>(data.data());
 	}
 
+	template <typename T>
+	void setPixel(glm::uvec2 coord, T value) {
+		getDataPtr<T>()[coord.x + coord.y * width] = value;
+	}
+
+	template <typename T>
+	T getPixel(glm::uvec2 coord) const {
+		return getDataPtr<T>()[coord.x + coord.y * width];
+	}
+
 	glm::vec4 sample(glm::vec2 uv) const;
 
 	glow::SharedTexture2D createTexture() const;
@@ -41,11 +51,11 @@ private:
 	int width;
 	int height;
 	int channels;
+	int bitsPerPixel;
+	GLenum format;
 	std::vector<unsigned char> data;
 	GLenum wrapS = GL_REPEAT;
 	GLenum wrapT = GL_REPEAT;
-	glow::ColorSpace colorSpace;
-    GLenum dataType;
 };
 
 using SharedImage = std::shared_ptr<Image>;

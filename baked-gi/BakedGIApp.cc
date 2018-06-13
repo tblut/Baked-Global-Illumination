@@ -17,14 +17,12 @@
 #include <AntTweakBar.h>
 #include <embree3/rtcore.h>
 
+
 namespace {
 	void debugTrace(void* clientData) {
 		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->traceDebugImage();
 	}
-	
-	SharedImage lightMapImage;
-    glow::SharedTexture2D lightMap;
 }
 
 void BakedGIApp::init() {
@@ -45,11 +43,15 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
+
+	debugPathTracer->setMaxPathDepth(0);
     
     lightMapBaker.reset(new LightMapBaker(*debugPathTracer));
-    lightMapImage = lightMapBaker->bake(scene.primitives[2], 128, 128);
-    lightMap = lightMapImage->createTexture();
-    pipeline->setDebugTexture(lightMap, DebugImageLocation::TopRight);
+	for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
+		auto lightMapImage = lightMapBaker->bake(scene.primitives[i], 256, 256);
+		scene.meshes[i].material.lightMap = lightMapImage->createTexture();
+		pipeline->setDebugTexture(scene.meshes[i].material.lightMap, DebugImageLocation::TopRight);
+	}
 
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");

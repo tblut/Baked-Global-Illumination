@@ -9,23 +9,59 @@
 #include <algorithm>
 #include <cassert>
 
-Image::Image(int width, int height, int channels, glow::ColorSpace colorSpace)
-		: width(width), height(height), channels(channels),
-		  data(width * height * channels), dataType(GL_UNSIGNED_BYTE), colorSpace(colorSpace) {
-
-}
-
-Image::Image(int width, int height, int channels, GLenum dataType, glow::ColorSpace colorSpace)
-		: width(width), height(height), channels(channels),
-		  dataType(dataType), colorSpace(colorSpace) {
-    assert(!(dataType == GL_FLOAT && colorSpace == glow::ColorSpace::sRGB));
+Image::Image(int width, int height, GLenum format)
+		: width(width), height(height), format(format) {
+    assert(!(format == GL_SRGB && format == GL_SRGB8 && format == GL_SRGB_ALPHA
+		&& format == GL_SRGB8_ALPHA8 && colorSpace == glow::ColorSpace::sRGB));
     
-    if (dataType == GL_UNSIGNED_BYTE) {
-        data.resize(width * height * channels);
-    }
-    else if (dataType == GL_FLOAT) {
-        data.resize(width * height * channels * 4);
-    }
+	switch (format) {
+	case GL_R8:
+		channels = 1;
+		bitsPerPixel = 8;
+		break;
+
+	case GL_RGB:
+	case GL_RGB8:
+	case GL_SRGB:
+	case GL_SRGB8:
+		channels = 3;
+		bitsPerPixel = 24;
+		break;
+
+	case GL_RGBA:
+	case GL_RGBA8:
+	case GL_SRGB_ALPHA:
+	case GL_SRGB8_ALPHA8:
+		channels = 4;
+		bitsPerPixel = 32;
+		break;
+
+	case GL_RGB16F:
+		channels = 3;
+		bitsPerPixel = 48;
+		break;
+
+	case GL_RGBA16F:
+		channels = 4;
+		bitsPerPixel = 64;
+		break;
+
+	case GL_RGB32F:
+		channels = 3;
+		bitsPerPixel = 96;
+		break;
+
+	case GL_RGBA32F:
+		channels = 4;
+		bitsPerPixel = 128;
+		break;
+
+	default:
+		glow::error() << "Unsupported data type for image";
+		break;
+	}
+
+	data.resize(width * height * bitsPerPixel / 8, 0);
 }
 
 int Image::getWidth() const {
@@ -40,8 +76,12 @@ int Image::getChannels() const {
 	return channels;
 }
 
-GLenum Image::getDataType() const {
-    return dataType;
+int Image::getBitsPerPixel() const {
+	return bitsPerPixel;
+}
+
+GLenum Image::getFormat() const {
+    return format;
 }
 
 unsigned char* Image::getDataPtr() {
@@ -87,7 +127,7 @@ glm::vec4 Image::sample(glm::vec2 uv) const {
 	glm::vec4 color11(0.0f);
 
     float scale = 1.0f / 255.0f;
-    if (dataType == GL_FLOAT) {
+    if (format == GL_RGB16F || format == GL_RGBA16F || format == GL_RGB32F || format == GL_RGBA32F) {
         scale = 1.0f;
     }
     
@@ -106,67 +146,33 @@ glm::vec4 Image::sample(glm::vec2 uv) const {
 glow::SharedTexture2D Image::createTexture() const {
 	auto surface = std::make_shared<glow::SurfaceData>();
 	auto dataPtr = getDataPtr<char>();
-    int channelStride = (dataType == GL_FLOAT) ? 4 : 1;
-	surface->setData(std::vector<char>(dataPtr, dataPtr + width * height * channels * channelStride));
-	surface->setType(dataType);
+	surface->setData(std::vector<char>(dataPtr, dataPtr + width * height * bitsPerPixel / 8));
 	surface->setMipmapLevel(0);
 	surface->setWidth(width);
 	surface->setHeight(height);
+
+	if (format == GL_RGB16F || format == GL_RGBA16F || format == GL_RGB32F || format == GL_RGBA32F) {
+		surface->setType(GL_FLOAT);
+	}
+	else {
+		surface->setType(GL_UNSIGNED_BYTE);
+	}
 
 	auto tex = std::make_shared<glow::TextureData>();
 	tex->setWidth(width);
 	tex->setHeight(height);
 	tex->addSurface(surface);
 
-	GLenum iformatRGB;
-	GLenum iformatRGBA;
-
-    if (dataType == GL_UNSIGNED_BYTE) {
-        switch (colorSpace)
-        {
-        case glow::ColorSpace::Linear:
-            iformatRGB = GL_RGB;
-            iformatRGBA = GL_RGBA;
-            break;
-        case glow::ColorSpace::sRGB:
-        default:
-            iformatRGB = GL_SRGB;
-            iformatRGBA = GL_SRGB_ALPHA;
-            break;
-        }
-    }
-    else if (dataType == GL_FLOAT) {
-        iformatRGB = GL_RGB32F;
-        iformatRGBA = GL_RGBA32F;
-    }
-    else {
-        glow::error() << "Unsupported data type for image";
-    }
-
 	if (channels == 1) {
-		surface->setFormat(GL_RGB);
-		tex->setPreferredInternalFormat(iformatRGB);
-
-		// convert grey to rgb
-		std::vector<char> newData;
-		const auto& oldData = surface->getData();
-		auto oldSize = oldData.size();
-		newData.resize(oldData.size() * 3);
-		for (std::size_t i = 0; i < oldSize; ++i)
-		{
-			auto d = oldData[i];
-			newData[i * 3 + 0] = d;
-			newData[i * 3 + 1] = d;
-			newData[i * 3 + 2] = d;
-		}
-		surface->setData(newData);
+		tex->setPreferredInternalFormat(format);
+		surface->setFormat(GL_RED);
 	}
 	else if (channels == 3) {
-		tex->setPreferredInternalFormat(iformatRGB);
+		tex->setPreferredInternalFormat(format);
 		surface->setFormat(GL_RGB);
 	}
 	else if (channels == 4) {
-		tex->setPreferredInternalFormat(iformatRGBA);
+		tex->setPreferredInternalFormat(format);
 		surface->setFormat(GL_RGBA);
 	}
 	else {

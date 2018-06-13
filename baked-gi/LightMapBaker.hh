@@ -16,5 +16,4 @@ public:
 
 private:
 	const PathTracer* pathTracer;
-
 };

@@ -95,7 +95,22 @@ namespace {
 		const auto& image = model.images[texture.source];
 		const auto& sampler = model.samplers[texture.sampler];
 
-		SharedImage result = std::make_shared<Image>(image.width, image.height, image.component, colorSpace);
+		GLenum format;
+		switch (image.component) {
+		case 3:
+			format = (colorSpace == glow::ColorSpace::sRGB) ? GL_SRGB8 : GL_RGB8;
+			break;
+
+		case 4:
+			format = (colorSpace == glow::ColorSpace::sRGB) ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+			break;
+
+		default:
+			glow::error() << "Unsupported glTF image format";
+			break;
+		}
+
+		SharedImage result = std::make_shared<Image>(image.width, image.height, format);
 		std::memcpy(result->getDataPtr(), image.image.data(), image.width * image.height * image.component);
 		result->setWrapMode(sampler.wrapS, sampler.wrapT);
 		images[textureIndex] = result;
@@ -124,18 +139,19 @@ namespace {
 			p.tangents = getDataFromAccessor<glm::vec4>(model.accessors[it->second], model);
 		}
 
+		// Light map texture coordinates are always on channel 0
 		it = primitive.attributes.find("TEXCOORD_0");
 		if (it != primitive.attributes.end()) {
-			auto texCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
-
-			it = primitive.attributes.find("TEXCOORD_1");
-			if (it != primitive.attributes.end()) {
-				p.texCoords = std::move(texCoords);
-				p.lightMapTexCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
-			}
-			else {
-				p.lightMapTexCoords = std::move(texCoords);
-			}
+			p.lightMapTexCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
+		}
+		else {
+			p.lightMapTexCoords.resize(p.positions.size(), glm::vec2(0.0f));
+		}
+		
+		// Albedo, normal and roughness texture coordinates are always on channel 1
+		it = primitive.attributes.find("TEXCOORD_1");
+		if (it != primitive.attributes.end()) {
+			p.texCoords = getDataFromAccessor<glm::vec2>(model.accessors[it->second], model);
 		}
 
 		if (primitive.indices == -1) {
@@ -184,6 +200,13 @@ namespace {
 
 		return p;
 	}
+
+	SharedImage createNullIrradianceMap() {
+		SharedImage image = std::make_shared<Image>(2, 2, GL_RGB8);
+		unsigned char pixels[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		std::memcpy(image->getDataPtr(), pixels, sizeof(pixels));
+		return image;
+	}
 }
 
 void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
@@ -204,7 +227,8 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 	}
 
 	// Allocate enough textures
-	images.resize(model.textures.size());
+	images.resize(model.textures.size() + 1);
+	images[images.size() - 1] = createNullIrradianceMap();
 
 	for (int nodeIndex : model.scenes[model.defaultScene].nodes) {
 		const auto& node = model.nodes[nodeIndex];
@@ -222,6 +246,7 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 				Primitive p = createPrimitive(primitive, model, images);
 				p.name = mesh.name;
 				p.transform = transform;
+				p.lightMap = images[images.size() - 1]; // Null irradiance map
 				primitives.push_back(std::move(p));
 			}
 		}
@@ -267,6 +292,13 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 				abs.push_back(ab);
 			}
 
+			if (!primitive.lightMapTexCoords.empty()) {
+				auto ab = glow::ArrayBuffer::create();
+				ab->defineAttribute<glm::vec2>("aLightMapTexCoord");
+				ab->bind().setData(primitive.lightMapTexCoords);
+				abs.push_back(ab);
+			}
+
 			auto eab = glow::ElementArrayBuffer::create(primitive.indices);
 			mesh.vao = glow::VertexArray::create(abs, eab, primitive.mode);
 
@@ -300,6 +332,15 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 				}
 
 				mesh.material.roughnessMap = textures[pos];
+			}
+
+			if (primitive.lightMap) {
+				auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.lightMap));
+				if (!textures[pos]) {
+					textures[pos] = primitive.lightMap->createTexture();
+				}
+
+				mesh.material.lightMap = textures[pos];
 			}
 
 			meshes.push_back(mesh);

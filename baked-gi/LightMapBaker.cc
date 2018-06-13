@@ -6,7 +6,7 @@
 #include <random>
 
 namespace {
-    glm::vec2 getBarycentricCoords(const glm::vec2& p, const glm::vec2& a,
+    glm::vec3 getBarycentricCoords(const glm::vec2& p, const glm::vec2& a,
                                    const glm::vec2& b, const glm::vec2& c) {
         glm::vec2 v0 = c - a;
         glm::vec2 v1 = b - a;
@@ -22,10 +22,10 @@ namespace {
         float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
         float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
         
-        return glm::vec2(u, v);
+        return glm::vec3(u, v, 1.0f - u - v);
     }
     
-    bool isPointInTriangle(const glm::vec2& barycentric) {
+    bool isPointInTriangle(const glm::vec3& barycentric) {
         return (barycentric.x >= 0.0f) && (barycentric.y >= 0.0f) && (barycentric.x + barycentric.y < 1.0f);
     }
     
@@ -77,66 +77,70 @@ SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int heigh
 	SharedImage lightMap = std::make_shared<Image>(width, height, GL_RGB32F);
     
     glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
-    glm::vec2 pixelSize = glm::vec2(1.0f) / glm::vec2(static_cast<float>(width), static_cast<float>(height)); 
+    glm::vec2 texelSize = glm::vec2(1.0f) / glm::vec2(static_cast<float>(width), static_cast<float>(height)); 
 
     for (std::size_t i = 0; i < primitive.indices.size(); i += 3) {
         glm::vec2 t0 = primitive.lightMapTexCoords[primitive.indices[i]];
         glm::vec2 t1 = primitive.lightMapTexCoords[primitive.indices[i + 1]];
         glm::vec2 t2 = primitive.lightMapTexCoords[primitive.indices[i + 2]];
         
-        glm::vec3 v0 = primitive.positions[primitive.indices[i]];
-        glm::vec3 v1 = primitive.positions[primitive.indices[i + 1]];
-        glm::vec3 v2 = primitive.positions[primitive.indices[i + 2]];
+        glm::vec3 v0 = primitive.transform * glm::vec4(primitive.positions[primitive.indices[i]], 1.0f);
+        glm::vec3 v1 = primitive.transform * glm::vec4(primitive.positions[primitive.indices[i + 1]], 1.0f);
+        glm::vec3 v2 = primitive.transform * glm::vec4(primitive.positions[primitive.indices[i + 2]], 1.0f);
         
-        glm::vec3 n0 = primitive.normals[primitive.indices[i]];
-        glm::vec3 n1 = primitive.normals[primitive.indices[i + 1]];
-        glm::vec3 n2 = primitive.normals[primitive.indices[i + 2]];
+        glm::vec3 n0 = normalMatrix * primitive.normals[primitive.indices[i]];
+        glm::vec3 n1 = normalMatrix * primitive.normals[primitive.indices[i + 1]];
+        glm::vec3 n2 = normalMatrix * primitive.normals[primitive.indices[i + 2]];
         
-        float minX = std::min(t0.x, std::min(t1.x, t2.x));
-        float minY = std::min(t0.y, std::min(t1.y, t2.y));
-        float maxX = std::max(t0.x, std::max(t1.x, t2.x));
-        float maxY = std::max(t0.y, std::max(t1.y, t2.y));
+        glm::vec2 texel0 = t0 + glm::vec2(0.5f) * texelSize;
+        glm::vec2 texel1 = t1 + glm::vec2(0.5f) * texelSize;
+        glm::vec2 texel2 = t2 + glm::vec2(0.5f) * texelSize;
         
-        int numStepsX = static_cast<int>(std::ceil((maxX - minX) / pixelSize.x));
-        int numStepsY = static_cast<int>(std::ceil((maxY - minY) / pixelSize.y));
+        float minX = std::min(texel0.x, std::min(texel1.x, texel2.x));
+        float minY = std::min(texel0.y, std::min(texel1.y, texel2.y));
+        float maxX = std::max(texel0.x, std::max(texel1.x, texel2.x));
+        float maxY = std::max(texel0.y, std::max(texel1.y, texel2.y));
         
-        #pragma omp parallel for
-        for (int stepY = 0; stepY < numStepsY; ++stepY) {
-            for (int stepX = 0; stepX < numStepsX; ++stepX) {
-                float x = minX + stepX * pixelSize.x;
-                float y = minY + stepY * pixelSize.y;
+        int numStepsX = static_cast<int>(std::ceil((maxX - minX) / texelSize.x));
+        int numStepsY = static_cast<int>(std::ceil((maxY - minY) / texelSize.y));
+        
+        std::vector<glm::vec3> colors(width * height);
+        
+        const int numSamples = 100;
+        for (int sample = 0; sample < numSamples; ++sample) {
+        
+            //#pragma omp parallel for
+            for (int stepY = 0; stepY < numStepsY; ++stepY) {
+                for (int stepX = 0; stepX < numStepsX; ++stepX) {
+                    glm::vec2 texelP = glm::vec2(minX, minY) + glm::vec2(stepX, stepY) * texelSize;
 
-                glm::vec2 barycentric = getBarycentricCoords(glm::vec2(x, y) + pixelSize / 2.0f, t0 + pixelSize / 2.0f, t1 + pixelSize / 2.0f, t2 + pixelSize / 2.0f);
-                if (!isPointInTriangle(barycentric)) {
-                    continue;
-                }
+                    float xx = texelP.x;// + (uniformDist(randEngine) - 0.5f) * texelSize.x;
+                    float yy = texelP.y;// + (uniformDist(randEngine) - 0.5f) * texelSize.y;
+                    
+                    glm::vec3 bary = getBarycentricCoords(glm::vec2(xx, yy), texel0, texel1, texel2);
+                    if (!isPointInTriangle(bary)) {
+                        continue;
+                    }
+                    
+                    glm::vec3 worldPos = v0 * bary.x + v1 * bary.y + v2 * bary.z;
+                    glm::vec3 worldNormal = glm::normalize(n0 * bary.x + n1 * bary.y + n2 * bary.z);
 
-                glm::vec3 irradiance(0.0f);
-                const int numSamples = 5000;
-                for (int sample = 0; sample < numSamples; ++sample) {
-					float xx = x + pixelSize.x / 2.0f + uniformDist(randEngine) - 0.5f;
-					float yy = y + pixelSize.y / 2.0f + uniformDist(randEngine) - 0.5f;
-
-					glm::vec2 bary = getBarycentricCoords(glm::vec2(xx, yy), t0 + pixelSize / 2.0f, t1 + pixelSize / 2.0f, t2 + pixelSize / 2.0f);
-
-					glm::vec3 localPos = v0 * bary.x + v1 * bary.y + v2 * (1.0f - bary.x - bary.y);
-					glm::vec3 worldPos = primitive.transform * glm::vec4(localPos, 1.0f);
-
-					glm::vec3 localNormal = n0 * bary.x + n1 * bary.y + n2 * (1.0f - bary.x - bary.y);
-					glm::vec3 worldNormal = glm::normalize(normalMatrix * localNormal);
-
+                    //glow::info() << worldNormal.x << " " << worldNormal.y << " " << worldNormal.z;
+                    
                     glm::vec3 dir = sampleCosineHemisphere(worldNormal);
-					irradiance += pathTracer->trace(worldPos, dir) / pdfCosineHemisphere(worldNormal, dir);
+                    glm::vec3 irradiance = pathTracer->trace(worldPos, dir) / pdfCosineHemisphere(worldNormal, dir);
+
+                    //irradiance = irradiance / (irradiance + glm::vec3(1.0f)); // Tone mapping
+                    
+                    int imageX = static_cast<int>(texelP.x * width - 0.5f);
+                    int imageY = static_cast<int>(texelP.y * height - 0.5f);
+                    colors[imageX + imageY * width] += irradiance;
                 }
-                irradiance /= numSamples;
-                
-                //irradiance = irradiance / (irradiance + glm::vec3(1.0f)); // Tone mapping
-                
-                int imageX = static_cast<int>(x * width);
-                int imageY = static_cast<int>(y * height);
-                
-				lightMap->setPixel<glm::vec3>({ imageX, imageY }, irradiance);
             }
+        }
+        
+        for (int i = 0; i < width * height; ++i) {
+            lightMap->getDataPtr<glm::vec3>()[i] = colors[i] / static_cast<float>(numSamples);
         }
     }
     

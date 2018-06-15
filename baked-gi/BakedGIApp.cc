@@ -48,7 +48,8 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
-	/*
+	
+/*
 	// TODO: Move this somewhere better
 	// Bake light maps and save to file
 	{
@@ -75,7 +76,7 @@ void BakedGIApp::init() {
 		}
 		outputFile.close();
 	}
-	*/
+*/
 
 	// Read baked lightmaps
 	{

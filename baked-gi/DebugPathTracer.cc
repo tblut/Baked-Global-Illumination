@@ -78,7 +78,7 @@ void DebugPathTracer::saveDebugImageToFile(const std::string& path) const {
 
 	auto surface = std::make_shared<glow::SurfaceData>();
 	auto dataPtr = pixels.data();
-	surface->setData(std::vector<char>(dataPtr, dataPtr + debugImageWidth * debugImageHeight * sizeof(glm::vec3)));
+	surface->setData(std::vector<char>(dataPtr, dataPtr + debugImageWidth * debugImageHeight * 3));
 	surface->setMipmapLevel(0);
 	surface->setWidth(debugImageWidth);
 	surface->setHeight(debugImageHeight);

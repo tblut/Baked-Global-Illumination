@@ -77,7 +77,7 @@ LightMapBaker::LightMapBaker(const PathTracer& pathTracer) : pathTracer(&pathTra
 SharedImage LightMapBaker::bake(const Primitive& primitive, int width, int height) {
 	SharedImage lightMap = std::make_shared<Image>(width, height, GL_RGB32F);
 
-	const int numSamples = 100;
+	const int numSamples = 5000;
 	std::vector<glm::vec3> colors(width * height, glm::vec3(0.0f));
 	glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
 

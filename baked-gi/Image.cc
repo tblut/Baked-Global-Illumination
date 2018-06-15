@@ -11,9 +11,6 @@
 
 Image::Image(int width, int height, GLenum format)
 		: width(width), height(height), format(format) {
-    assert(!(format == GL_SRGB && format == GL_SRGB8 && format == GL_SRGB_ALPHA
-		&& format == GL_SRGB8_ALPHA8 && colorSpace == glow::ColorSpace::sRGB));
-    
 	switch (format) {
 	case GL_R8:
 		channels = 1;

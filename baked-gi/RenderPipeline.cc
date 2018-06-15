@@ -48,10 +48,11 @@ RenderPipeline::RenderPipeline() {
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
+	const auto& cam = *camera;
+
 	{ // Render scene to HDR buffer
 		auto fbo = hdrFbo->bind();
-		const auto& cam = *camera;
-
+		
 		GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(enable, GL_CULL_FACE);
 		GLOW_SCOPED(clearColor, 1, 1, 1, 1);

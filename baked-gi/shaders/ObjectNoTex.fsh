@@ -24,7 +24,8 @@ void main() {
 
 	// Shading
 	vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
-	fColor = irradiance * (1.0 - uMetallic) * uBaseColor;// + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;
+	vec3 diffuse = (1.0 - uMetallic) * uBaseColor / 3.14159265359;
+	fColor = irradiance * diffuse + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;
 
 	// Extract brightness for bloom
 	float brightness = dot(fColor, vec3(0.2126, 0.7152, 0.0722));

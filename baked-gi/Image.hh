@@ -2,7 +2,6 @@
 
 #include <glow/gl.hh>
 #include <glow/fwd.hh>
-#include <glow/data/ColorSpace.hh>
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>

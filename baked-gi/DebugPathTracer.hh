@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PathTracer.hh"
+#include <string>
 
 class DebugPathTracer : public PathTracer {
 public:
@@ -11,6 +12,7 @@ public:
 	void setSamplesPerPixel(unsigned int sampleCount);
 	void setDebugImageSize(int width, int height);
 	glow::SharedTexture2D getDebugTexture() const;
+	void saveDebugImageToFile(const std::string& path) const;
 
 private:
 	int debugImageWidth;

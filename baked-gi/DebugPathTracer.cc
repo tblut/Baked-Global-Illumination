@@ -3,6 +3,7 @@
 
 #include <glow/objects/Texture2D.hh>
 #include <glow/data/SurfaceData.hh>
+#include <glow/data/TextureData.hh>
 #include <random>
 
 namespace {
@@ -65,4 +66,28 @@ void DebugPathTracer::setDebugImageSize(int width, int height) {
 
 glow::SharedTexture2D DebugPathTracer::getDebugTexture() const {
 	return debugTexture;
+}
+
+void DebugPathTracer::saveDebugImageToFile(const std::string& path) const {
+	std::vector<unsigned char> pixels(debugImageWidth * debugImageHeight * 3);
+	for (int i = 0; i < debugImageWidth * debugImageHeight; ++i) {
+		pixels[i * 3] = static_cast<unsigned char>(debugImage[i].x * 255.0f);
+		pixels[i * 3 + 1] = static_cast<unsigned char>(debugImage[i].y * 255.0f);
+		pixels[i * 3 + 2] = static_cast<unsigned char>(debugImage[i].z * 255.0f);
+	}
+
+	auto surface = std::make_shared<glow::SurfaceData>();
+	auto dataPtr = pixels.data();
+	surface->setData(std::vector<char>(dataPtr, dataPtr + debugImageWidth * debugImageHeight * sizeof(glm::vec3)));
+	surface->setMipmapLevel(0);
+	surface->setWidth(debugImageWidth);
+	surface->setHeight(debugImageHeight);
+	surface->setType(GL_UNSIGNED_BYTE);
+	surface->setFormat(GL_RGB);
+
+	auto tex = std::make_shared<glow::TextureData>();
+	tex->setWidth(debugImageWidth);
+	tex->setHeight(debugImageHeight);
+	tex->addSurface(surface);
+	tex->saveToFile(path);
 }

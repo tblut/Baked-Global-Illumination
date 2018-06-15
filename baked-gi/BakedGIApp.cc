@@ -23,6 +23,11 @@ namespace {
 		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->traceDebugImage();
 	}
+
+	void saveTrace(void* clientData) {
+		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
+		tracer->saveDebugImageToFile(glow::util::pathOf(__FILE__) + "/textures/debugtrace.png");
+	}
 }
 
 void BakedGIApp::init() {
@@ -86,7 +91,6 @@ void BakedGIApp::init() {
 			inputFile.read(lightMap->getDataPtr<char>(), width * height * sizeof(float) * 3);
 
 			scene.meshes[i].material.lightMap = lightMap->createTexture();
-			pipeline->setDebugTexture(scene.meshes[i].material.lightMap, DebugImageLocation::TopRight);
 		}
 	}
 	
@@ -95,11 +99,14 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
+	TwAddButton(tweakbar(), "Save Trace", saveTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Debug Trace Scale", TW_TYPE_FLOAT, &debugTraceScale, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "SPP", TW_TYPE_UINT32, &samplesPerPixel, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Max Path Depth", TW_TYPE_UINT32, &maxPathDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Radiance", TW_TYPE_FLOAT, &clampRadiance, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Show Lightmap", TW_TYPE_BOOLCPP, &showDebugLightMap, "group=lightmap");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
@@ -108,6 +115,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setClampDepth(clampDepth);
 	debugPathTracer->setClampRadiance(clampRadiance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
+	pipeline->setDebugTexture(showDebugLightMap ? scene.meshes.back().material.lightMap : nullptr, DebugImageLocation::TopRight);
 	scene.render(*pipeline);
 }
 
@@ -116,6 +124,6 @@ void BakedGIApp::onResize(int w, int h) {
 	pipeline->resizeBuffers(w, h);
 	
 	debugPathTracer->setDebugImageSize(
-		getCamera()->getViewportWidth() / 4,
-		getCamera()->getViewportHeight() / 4);
+		static_cast<int>(getCamera()->getViewportWidth() * debugTraceScale),
+		static_cast<int>(getCamera()->getViewportHeight() * debugTraceScale));
 }

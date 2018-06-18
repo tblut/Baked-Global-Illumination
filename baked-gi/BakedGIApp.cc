@@ -39,7 +39,7 @@ void BakedGIApp::init() {
 	cam->setPosition({ 0, 0, 1 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/test2.glb");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox_notex.glb");
 
 	pipeline.reset(new RenderPipeline());
 	pipeline->attachCamera(*getCamera());
@@ -49,22 +49,22 @@ void BakedGIApp::init() {
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
 	
-/*
+
 	// TODO: Move this somewhere better
 	// Bake light maps and save to file
-	{
+	{/*
 		debugPathTracer->setMaxPathDepth(5);
 
-		lightMapBaker.reset(new LightMapBaker(*debugPathTracer));
+		illuminationBaker.reset(new IlluminationBaker(*debugPathTracer));
 		std::vector<SharedImage> lightMaps;
 		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			auto lightMapImage = lightMapBaker->bake(scene.primitives[i], 512, 512);
+			auto lightMapImage = illuminationBaker->bakeIrradiance(scene.primitives[i], 128, 128, 1000);
 			lightMaps.push_back(lightMapImage);
-			//scene.meshes[i].material.lightMap = lightMapImage->createTexture();
-			//pipeline->setDebugTexture(scene.meshes[i].material.lightMap, DebugImageLocation::TopRight);
-		}
-
-		std::ofstream outputFile(glow::util::pathOf(__FILE__) + "/textures/test2.lm", std::ios::binary | std::ios::trunc | std::ios::out);
+			scene.meshes[i].material.lightMap = lightMapImage->createTexture();
+			pipeline->setDebugTexture(scene.meshes[i].material.lightMap, DebugImageLocation::TopRight);
+		}*/
+		/*
+		std::ofstream outputFile(glow::util::pathOf(__FILE__) + "/textures/test.lm", std::ios::binary | std::ios::trunc | std::ios::out);
 		std::uint32_t numLightMaps = lightMaps.size();
 		outputFile.write(reinterpret_cast<const char*>(&numLightMaps), sizeof(std::uint32_t));
 		for (const auto& map : lightMaps) {
@@ -74,13 +74,23 @@ void BakedGIApp::init() {
 			outputFile.write(reinterpret_cast<const char*>(&height), sizeof(std::uint32_t));
 			outputFile.write(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
 		}
-		outputFile.close();
+		outputFile.close();*/
 	}
-*/
+	/*
+	{
+		illuminationBaker.reset(new IlluminationBaker(*debugPathTracer));
+		std::vector<SharedImage> lightMaps;
+		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
+			auto aoImage = illuminationBaker->bakeAmbientOcclusion(scene.primitives[i], 128, 128, 500, 0.1f);
+			scene.meshes[i].material.aoMap = aoImage->createTexture();
+			pipeline->setDebugTexture(scene.meshes[i].material.aoMap, DebugImageLocation::TopRight);
+		}
+	}
+	*/
 
 	// Read baked lightmaps
-	{
-		std::ifstream inputFile(glow::util::pathOf(__FILE__) + "/textures/test2.lm", std::ios::binary | std::ios::in);
+	/*{
+		std::ifstream inputFile(glow::util::pathOf(__FILE__) + "/textures/test.lm", std::ios::binary | std::ios::in);
 		std::uint32_t numLightMaps;
 		inputFile.read(reinterpret_cast<char*>(&numLightMaps), sizeof(std::uint32_t));
 		for (std::uint32_t i = 0; i < numLightMaps; ++i) {
@@ -93,16 +103,18 @@ void BakedGIApp::init() {
 
 			scene.meshes[i].material.lightMap = lightMap->createTexture();
 		}
-	}
+	}*/
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
+	TwAddVarRW(tweakbar(), "Shadow Map Size", TW_TYPE_UINT32, &shadowMapSize, "group=light");
+	TwAddVarRW(tweakbar(), "Shadow Map Offset", TW_TYPE_FLOAT, &shadowMapOffset, "group=light step=0.0001");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddButton(tweakbar(), "Save Trace", saveTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
-	TwAddVarRW(tweakbar(), "Debug Trace Scale", TW_TYPE_FLOAT, &debugTraceScale, "group=pathtrace");
+	TwAddVarRW(tweakbar(), "Debug Trace Scale", TW_TYPE_FLOAT, &debugTraceScale, "group=pathtrace step=0.01");
 	TwAddVarRW(tweakbar(), "SPP", TW_TYPE_UINT32, &samplesPerPixel, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Max Path Depth", TW_TYPE_UINT32, &maxPathDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
@@ -116,7 +128,9 @@ void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setClampDepth(clampDepth);
 	debugPathTracer->setClampRadiance(clampRadiance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
-	pipeline->setDebugTexture(showDebugLightMap ? scene.meshes.back().material.lightMap : nullptr, DebugImageLocation::TopRight);
+	//pipeline->setDebugTexture(showDebugLightMap ? scene.meshes.back().material.lightMap : nullptr, DebugImageLocation::TopRight);
+	pipeline->setShadowMapSize(shadowMapSize);
+	pipeline->setShadowMapOffset(shadowMapOffset);
 	scene.render(*pipeline);
 }
 

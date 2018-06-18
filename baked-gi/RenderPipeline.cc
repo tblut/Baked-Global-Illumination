@@ -18,6 +18,7 @@ RenderPipeline::RenderPipeline() {
 	std::string workDir = glow::util::pathOf(__FILE__);
 	objectShader = glow::Program::createFromFile(workDir + "/shaders/Object");
 	objectNoTexShader = glow::Program::createFromFile(workDir + "/shaders/ObjectNoTex");
+	shadowShader = glow::Program::createFromFile(workDir + "/shaders/Shadow");
 	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/Skybox");
 	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
 	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
@@ -36,6 +37,14 @@ RenderPipeline::RenderPipeline() {
 	blurFboA = glow::Framebuffer::create({ { "fColor", blurColorBufferA } });
 	blurFboB = glow::Framebuffer::create({ { "fColor", blurColorBufferB } });
 
+	shadowBuffer = glow::TextureRectangle::create(shadowMapSize, shadowMapSize, GL_DEPTH_COMPONENT32);
+	shadowFbo = glow::Framebuffer::create(std::vector<glow::Framebuffer::Attachment>(), shadowBuffer);
+	shadowBuffer->bind().setFilter(GL_LINEAR, GL_LINEAR);
+	shadowBuffer->bind().setCompareFunc(GL_LEQUAL);
+	shadowBuffer->bind().setCompareMode(GL_COMPARE_REF_TO_TEXTURE);
+	shadowBuffer->bind().setWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+	shadowBuffer->bind().setBorderColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
 	auto pbt = workDir + "/textures/miramar";
 	skybox = glow::TextureCubeMap::createFromData(glow::TextureData::createFromFileCube(
 		pbt + "/posx.jpg",
@@ -48,7 +57,44 @@ RenderPipeline::RenderPipeline() {
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
+	// Sort meshes into the correct bucket
+	texturedMeshes.clear();
+	untexturedMeshes.clear();
+	for (const auto& mesh : meshes) {
+		if (mesh.material.colorMap) {
+			texturedMeshes.push_back(mesh);
+		}
+		else {
+			untexturedMeshes.push_back(mesh);
+		}
+	}
+
 	const auto& cam = *camera;
+	auto lightViewMatrix = glm::lookAt(cam.getPosition() - light->direction * 50.0f, cam.getPosition(), glm::vec3(0, 1, 0));
+	auto lightProjMatrix = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 150.0f);
+	auto lightMatrix = lightProjMatrix * lightViewMatrix;
+
+	{ // Render scene to shadow map
+		if (shadowBuffer->getWidth() != shadowMapSize) {
+			shadowBuffer->bind().resize(shadowMapSize, shadowMapSize);
+		}
+
+		auto fbo = shadowFbo->bind();
+
+		GLOW_SCOPED(viewport, 0, 0, shadowMapSize, shadowMapSize);
+		GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(enable, GL_CULL_FACE);
+		GLOW_SCOPED(depthFunc, GL_LESS);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		auto p = shadowShader->use();
+		p.setUniform("uViewProj", lightMatrix);
+
+		for (const auto& mesh : meshes) {
+			p.setUniform("uModel", mesh.transform);
+			mesh.vao->bind().draw();
+		}
+	}
 
 	{ // Render scene to HDR buffer
 		auto fbo = hdrFbo->bind();
@@ -59,46 +105,55 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		{ // Render objects
-			for (const auto& mesh : meshes) {
-				if (mesh.material.colorMap) {
-					auto p = objectShader->use();
-					p.setUniform("uView", cam.getViewMatrix());
-					p.setUniform("uProj", cam.getProjectionMatrix());
-					p.setUniform("uModel", mesh.transform);
-					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-					p.setUniform("uCamPos", cam.getPosition());
-					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-					p.setUniform("uLightDir", glm::normalize(-light->direction));
-					p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+			for (const auto& mesh : texturedMeshes) {
+				auto p = objectShader->use();
+				p.setUniform("uView", cam.getViewMatrix());
+				p.setUniform("uProj", cam.getProjectionMatrix());
+				p.setUniform("uModel", mesh.transform);
+				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
+				p.setUniform("uCamPos", cam.getPosition());
+				p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+				p.setUniform("uLightDir", glm::normalize(-light->direction));
+				p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+				p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+				p.setUniform("uShadowOffset", shadowMapOffset);
+				p.setUniform("uLightMatrix", lightMatrix);
 
-					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-					p.setUniform("uMetallic", mesh.material.metallic);
-					p.setUniform("uRoughness", mesh.material.roughness);
-					p.setTexture("uTextureColor", mesh.material.colorMap);
-					p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
-					p.setTexture("uTextureNormal", mesh.material.normalMap);
-					p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
+				p.setUniform("uMetallic", mesh.material.metallic);
+				p.setUniform("uRoughness", mesh.material.roughness);
+				p.setTexture("uTextureColor", mesh.material.colorMap);
+				p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
+				p.setTexture("uTextureNormal", mesh.material.normalMap);
+				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+				//p.setTexture("uTextureAO", mesh.material.aoMap);
+				p.setTexture("uTextureShadow", shadowBuffer);
 
-					mesh.vao->bind().draw();
-				}
-				else {
-					auto p = objectNoTexShader->use();
-					p.setUniform("uView", cam.getViewMatrix());
-					p.setUniform("uProj", cam.getProjectionMatrix());
-					p.setUniform("uModel", mesh.transform);
-					p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-					p.setUniform("uCamPos", cam.getPosition());
-					p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-					p.setUniform("uLightDir", glm::normalize(-light->direction));
-					p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+				mesh.vao->bind().draw();
+			}
+				
+			for (const auto& mesh : untexturedMeshes) {
+				auto p = objectNoTexShader->use();
+				p.setUniform("uView", cam.getViewMatrix());
+				p.setUniform("uProj", cam.getProjectionMatrix());
+				p.setUniform("uModel", mesh.transform);
+				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
+				p.setUniform("uCamPos", cam.getPosition());
+				p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+				p.setUniform("uLightDir", glm::normalize(-light->direction));
+				p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+				p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+				p.setUniform("uShadowOffset", shadowMapOffset);
+				p.setUniform("uLightMatrix", lightMatrix);
 
-					p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-					p.setUniform("uMetallic", mesh.material.metallic);
-					p.setUniform("uRoughness", mesh.material.roughness);
-					p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
+				p.setUniform("uMetallic", mesh.material.metallic);
+				p.setUniform("uRoughness", mesh.material.roughness);
+				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+				//p.setTexture("uTextureAO", mesh.material.aoMap);
+				p.setTexture("uTextureShadow", shadowBuffer);
 
-					mesh.vao->bind().draw();
-				}
+				mesh.vao->bind().draw();
 			}
 		}
 
@@ -197,6 +252,14 @@ void RenderPipeline::attachCamera(const glow::camera::GenericCamera& camera) {
 
 void RenderPipeline::attachLight(const DirectionalLight& light) {
 	this->light = &light;
+}
+
+void RenderPipeline::setShadowMapSize(int size) {
+	shadowMapSize = size;
+}
+
+void RenderPipeline::setShadowMapOffset(float offset) {
+	shadowMapOffset = offset;
 }
 
 void RenderPipeline::setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location) {

@@ -3,7 +3,7 @@
 #include "Scene.hh"
 #include "RenderPipeline.hh"
 #include "DebugPathTracer.hh"
-#include "LightMapBaker.hh"
+#include "IlluminationBaker.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -21,7 +21,7 @@ private:
 	Scene scene;
 	std::unique_ptr<RenderPipeline> pipeline;
 	std::unique_ptr<DebugPathTracer> debugPathTracer;
-    std::unique_ptr<LightMapBaker> lightMapBaker;
+    std::unique_ptr<IlluminationBaker> illuminationBaker;
 	bool showDebugImage = false;
 	float debugTraceScale = 0.5f;
 	unsigned int samplesPerPixel = 100;
@@ -29,4 +29,6 @@ private:
 	unsigned int clampDepth = 0;
 	float clampRadiance = 25.0f;
 	bool showDebugLightMap = false;
+	int shadowMapSize = 4096;
+	float shadowMapOffset = 0.001;
 };

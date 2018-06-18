@@ -370,6 +370,19 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 	return illumination;
 }
 
+float PathTracer::testOcclusionDist(const glm::vec3& origin, const glm::vec3& dir) const {
+	RTCRayHit rayhit = { Ray(origin, dir, 0.001f, std::numeric_limits<float>::infinity()), Hit() };
+	RTCIntersectContext context;
+	rtcInitIntersectContext(&context);
+	rtcIntersect1(scene, &context, &rayhit);
+
+	if (rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+		return rayhit.ray.tfar;
+	}
+
+	return -std::numeric_limits<float>::infinity();
+}
+
 void PathTracer::setLight(const DirectionalLight& light) {
 	this->light = &light;
 }

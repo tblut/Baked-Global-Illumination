@@ -24,6 +24,9 @@ public:
 	void attachCamera(const glow::camera::GenericCamera& camera);
 	void attachLight(const DirectionalLight& light);
 
+	void setShadowMapSize(int size);
+	void setShadowMapOffset(float offset);
+	
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 
 private:
@@ -37,8 +40,14 @@ private:
 	glow::SharedFramebuffer blurFboA;
 	glow::SharedFramebuffer blurFboB;
 
+	int shadowMapSize = 4096;
+	float shadowMapOffset = 0.001f;
+	glow::SharedTextureRectangle shadowBuffer;
+	glow::SharedFramebuffer shadowFbo;
+
 	glow::SharedProgram objectShader;
 	glow::SharedProgram objectNoTexShader;
+	glow::SharedProgram shadowShader;
 	glow::SharedProgram skyboxShader;
 	glow::SharedProgram downsampleShader;
 	glow::SharedProgram blurShader;
@@ -55,4 +64,6 @@ private:
 	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.0f);
 	const DirectionalLight* light;
+	std::vector<Mesh> texturedMeshes;
+	std::vector<Mesh> untexturedMeshes;
 };

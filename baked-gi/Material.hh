@@ -8,6 +8,7 @@ struct Material {
 	glow::SharedTexture2D roughnessMap;
 	glow::SharedTexture2D normalMap;
 	glow::SharedTexture2D lightMap;
+	glow::SharedTexture2D aoMap;
 	float roughness = 0.5f;
 	float metallic = 0.0f;
 	glm::vec3 baseColor = glm::vec3(1.0);

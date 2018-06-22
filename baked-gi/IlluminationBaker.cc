@@ -82,7 +82,8 @@ SharedImage IlluminationBaker::bakeIrradiance(const Primitive& primitive, int wi
 	});
 }
 
-SharedImage IlluminationBaker::bakeAmbientOcclusion(const Primitive& primitive, int width, int height, int samplesPerTexel, float maxDistance) {
+SharedImage IlluminationBaker::bakeAmbientOcclusion(const Primitive& primitive, int width, int height,
+													int samplesPerTexel, float maxDistance) {
 	return bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
 		glm::vec3 dir = sampleCosineHemisphere(normal);
 		float occlusionDist = pathTracer->testOcclusionDist(pos, dir);
@@ -131,8 +132,8 @@ SharedImage IlluminationBaker::bake(const Primitive& primitive, int width, int h
 
 		int numStepsX = static_cast<int>(std::ceil(maxX - minX));
 		int numStepsY = static_cast<int>(std::ceil(maxY - minY));
-		if (minX + numStepsX >= width) numStepsX = width - minX - 1;
-		if (minY + numStepsY >= height) numStepsY = height - minY - 1;
+		//if (minX + numStepsX > width) numStepsX = width - minX;// -1;
+		//if (minY + numStepsY > height) numStepsY = height - minY;// -1;
 
 		for (int sample = 0; sample < samplesPerTexel; ++sample) {
 			#pragma omp parallel for

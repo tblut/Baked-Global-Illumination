@@ -15,13 +15,15 @@ class PathTracer;
 
 class Scene {
 public:
-	void loadFromGltf(const std::string& path, bool makeRealtimeObjects = true);
+	void loadFromGltf(const std::string& path);
 	void render(RenderPipeline& pipeline) const;
 
+	void buildRealtimeObjects(const std::string& lightMapPath = "");
 	void buildPathTracerScene(PathTracer& pathTracer) const;
 
 	DirectionalLight& getSun();
 	const DirectionalLight& getSun() const;
+
 	std::vector<Primitive> primitives;
 	std::vector<Mesh> meshes;
 private:

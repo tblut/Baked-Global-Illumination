@@ -1,4 +1,5 @@
 #include "BakedGIApp.hh"
+#include "LightMapWriter.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture2D.hh>
@@ -39,7 +40,7 @@ void BakedGIApp::init() {
 	cam->setPosition({ 0, 0, 1 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/cornellbox_notex.glb");
+	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/test2.glb");
 
 	pipeline.reset(new RenderPipeline());
 	pipeline->attachCamera(*getCamera());
@@ -48,61 +49,26 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
+	scene.buildRealtimeObjects(glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm");
 	
-
-	// TODO: Move this somewhere better
-	// Bake light maps and save to file
-	{/*
+	// Bake light and ao maps and save to file
+	/*{
 		debugPathTracer->setMaxPathDepth(5);
 
 		illuminationBaker.reset(new IlluminationBaker(*debugPathTracer));
-		std::vector<SharedImage> lightMaps;
+		std::vector<SharedImage> irradianceMaps;
 		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			auto lightMapImage = illuminationBaker->bakeIrradiance(scene.primitives[i], 128, 128, 1000);
-			lightMaps.push_back(lightMapImage);
-			scene.meshes[i].material.lightMap = lightMapImage->createTexture();
-			pipeline->setDebugTexture(scene.meshes[i].material.lightMap, DebugImageLocation::TopRight);
-		}*/
-		/*
-		std::ofstream outputFile(glow::util::pathOf(__FILE__) + "/textures/test.lm", std::ios::binary | std::ios::trunc | std::ios::out);
-		std::uint32_t numLightMaps = lightMaps.size();
-		outputFile.write(reinterpret_cast<const char*>(&numLightMaps), sizeof(std::uint32_t));
-		for (const auto& map : lightMaps) {
-			std::uint32_t width = map->getWidth();
-			std::uint32_t height = map->getHeight();
-			outputFile.write(reinterpret_cast<const char*>(&width), sizeof(std::uint32_t));
-			outputFile.write(reinterpret_cast<const char*>(&height), sizeof(std::uint32_t));
-			outputFile.write(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
+			auto lightMapImage = illuminationBaker->bakeIrradiance(scene.primitives[i], 512, 512, 2000);
+			irradianceMaps.push_back(lightMapImage);
 		}
-		outputFile.close();*/
-	}
-	/*
-	{
-		illuminationBaker.reset(new IlluminationBaker(*debugPathTracer));
-		std::vector<SharedImage> lightMaps;
+
+		std::vector<SharedImage> aoMaps;
 		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			auto aoImage = illuminationBaker->bakeAmbientOcclusion(scene.primitives[i], 128, 128, 500, 0.1f);
-			scene.meshes[i].material.aoMap = aoImage->createTexture();
-			pipeline->setDebugTexture(scene.meshes[i].material.aoMap, DebugImageLocation::TopRight);
+			auto aoImage = illuminationBaker->bakeAmbientOcclusion(scene.primitives[i], 512, 512, 2000, 0.15f);
+			aoMaps.push_back(aoImage);
 		}
-	}
-	*/
 
-	// Read baked lightmaps
-	/*{
-		std::ifstream inputFile(glow::util::pathOf(__FILE__) + "/textures/test.lm", std::ios::binary | std::ios::in);
-		std::uint32_t numLightMaps;
-		inputFile.read(reinterpret_cast<char*>(&numLightMaps), sizeof(std::uint32_t));
-		for (std::uint32_t i = 0; i < numLightMaps; ++i) {
-			std::uint32_t width;
-			std::uint32_t height;
-			inputFile.read(reinterpret_cast<char*>(&width), sizeof(std::uint32_t));
-			inputFile.read(reinterpret_cast<char*>(&height), sizeof(std::uint32_t));
-			SharedImage lightMap = std::make_shared<Image>(width, height, GL_RGB32F);
-			inputFile.read(lightMap->getDataPtr<char>(), width * height * sizeof(float) * 3);
-
-			scene.meshes[i].material.lightMap = lightMap->createTexture();
-		}
+		writeLightMapToFile(glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm", irradianceMaps, aoMaps);
 	}*/
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");

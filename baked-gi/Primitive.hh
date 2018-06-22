@@ -27,7 +27,6 @@ public:
 	SharedImage albedoMap;
 	SharedImage normalMap;
 	SharedImage roughnessMap;
-	SharedImage lightMap;
 	glm::vec3 baseColor = glm::vec3(1.0f);
 	float roughness = 1.0f;
 	float metallic = 1.0f;

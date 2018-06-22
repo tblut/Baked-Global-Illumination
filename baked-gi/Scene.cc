@@ -1,5 +1,6 @@
 #include "Scene.hh"
 #include "PathTracer.hh"
+#include "LightMapReader.hh"
 #include "third-party/tiny_gltf.h"
 
 #include <glow/fwd.hh>
@@ -13,6 +14,7 @@
 
 #include <unordered_map>
 #include <algorithm>
+#include <fstream>
 
 namespace {
 	glm::mat4 getTransformForNode(const tinygltf::Node& node) {
@@ -207,9 +209,16 @@ namespace {
 		std::memcpy(image->getDataPtr(), pixels, sizeof(pixels));
 		return image;
 	}
+
+	SharedImage createNullAoMap() {
+		SharedImage image = std::make_shared<Image>(2, 2, GL_RGB8);
+		unsigned char pixels[] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+		std::memcpy(image->getDataPtr(), pixels, sizeof(pixels));
+		return image;
+	}
 }
 
-void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
+void Scene::loadFromGltf(const std::string& path) {
 	tinygltf::TinyGLTF context;
 	tinygltf::Model model;
 	std::string error;
@@ -227,8 +236,7 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 	}
 
 	// Allocate enough textures
-	images.resize(model.textures.size() + 1);
-	images[images.size() - 1] = createNullIrradianceMap();
+	images.resize(model.textures.size());
 
 	for (int nodeIndex : model.scenes[model.defaultScene].nodes) {
 		const auto& node = model.nodes[nodeIndex];
@@ -246,110 +254,134 @@ void Scene::loadFromGltf(const std::string& path, bool makeRealtimeObjects) {
 				Primitive p = createPrimitive(primitive, model, images);
 				p.name = mesh.name;
 				p.transform = transform;
-				p.lightMap = images[images.size() - 1]; // Null irradiance map
 				primitives.push_back(std::move(p));
 			}
-		}
-	}
-
-	// Create the realtime objects if necessary
-	if (makeRealtimeObjects) {
-		meshes.reserve(primitives.size());
-		textures.resize(images.size());
-		
-		for (const auto& primitive : primitives) {
-			Mesh mesh;
-			mesh.transform = primitive.transform;
-
-			// Geometry
-			std::vector<glow::SharedArrayBuffer> abs;
-
-			{
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec3>("aPosition");
-				ab->bind().setData(primitive.positions);
-				abs.push_back(ab);
-			}
-
-			{
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec3>("aNormal");
-				ab->bind().setData(primitive.normals);
-				abs.push_back(ab);
-			}
-
-			if (!primitive.tangents.empty()) {
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec4>("aTangent");
-				ab->bind().setData(primitive.tangents);
-				abs.push_back(ab);
-			}
-
-			if (!primitive.texCoords.empty()) {
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec2>("aTexCoord");
-				ab->bind().setData(primitive.texCoords);
-				abs.push_back(ab);
-			}
-
-			if (!primitive.lightMapTexCoords.empty()) {
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec2>("aLightMapTexCoord");
-				ab->bind().setData(primitive.lightMapTexCoords);
-				abs.push_back(ab);
-			}
-
-			auto eab = glow::ElementArrayBuffer::create(primitive.indices);
-			mesh.vao = glow::VertexArray::create(abs, eab, primitive.mode);
-
-			// Material
-			mesh.material.baseColor = primitive.baseColor;
-			mesh.material.roughness = primitive.roughness;
-			mesh.material.metallic = primitive.metallic;
-
-			if (primitive.albedoMap) {
-				auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.albedoMap));
-				if (!textures[pos]) {
-					textures[pos] = primitive.albedoMap->createTexture();
-				}
-
-				mesh.material.colorMap = textures[pos];
-			}
-
-			if (primitive.normalMap) {
-				auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.normalMap));
-				if (!textures[pos]) {
-					textures[pos] = primitive.normalMap->createTexture();
-				}
-
-				mesh.material.normalMap = textures[pos];
-			}
-
-			if (primitive.roughnessMap) {
-				auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.roughnessMap));
-				if (!textures[pos]) {
-					textures[pos] = primitive.roughnessMap->createTexture();
-				}
-
-				mesh.material.roughnessMap = textures[pos];
-			}
-
-			if (primitive.lightMap) {
-				auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.lightMap));
-				if (!textures[pos]) {
-					textures[pos] = primitive.lightMap->createTexture();
-				}
-
-				mesh.material.lightMap = textures[pos];
-			}
-
-			meshes.push_back(mesh);
 		}
 	}
 }
 
 void Scene::render(RenderPipeline& pipeline) const {
 	pipeline.render(meshes);
+}
+
+void Scene::buildRealtimeObjects(const std::string& lightMapPath) {
+	auto defaultIrradianceMap = createNullIrradianceMap()->createTexture();
+	auto defaultAoMap = createNullAoMap()->createTexture();
+	std::vector<glow::SharedTexture2D> irradianceMaps;
+	std::vector<glow::SharedTexture2D> aoMaps;
+
+	if (!lightMapPath.empty()) {
+		std::vector<SharedImage> tempIrrMaps;
+		std::vector<SharedImage> tempAoMaps;
+		readLightMapFromFile(lightMapPath, tempIrrMaps, tempAoMaps);
+
+		for (const auto& map : tempIrrMaps) {
+			irradianceMaps.push_back(map->createTexture());
+		}
+
+		for (const auto& map : tempAoMaps) {
+			aoMaps.push_back(map->createTexture());
+		}
+	}
+
+	meshes.reserve(primitives.size());
+	textures.resize(images.size());
+
+	for (std::size_t i = 0; i < primitives.size(); ++i) {
+		const auto& primitive = primitives[i];
+
+		Mesh mesh;
+		mesh.transform = primitive.transform;
+
+		// Geometry
+		std::vector<glow::SharedArrayBuffer> abs;
+
+		{
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::vec3>("aPosition");
+			ab->bind().setData(primitive.positions);
+			abs.push_back(ab);
+		}
+
+		{
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::vec3>("aNormal");
+			ab->bind().setData(primitive.normals);
+			abs.push_back(ab);
+		}
+
+		if (!primitive.tangents.empty()) {
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::vec4>("aTangent");
+			ab->bind().setData(primitive.tangents);
+			abs.push_back(ab);
+		}
+
+		if (!primitive.texCoords.empty()) {
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::vec2>("aTexCoord");
+			ab->bind().setData(primitive.texCoords);
+			abs.push_back(ab);
+		}
+
+		if (!primitive.lightMapTexCoords.empty()) {
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::vec2>("aLightMapTexCoord");
+			ab->bind().setData(primitive.lightMapTexCoords);
+			abs.push_back(ab);
+		}
+
+		auto eab = glow::ElementArrayBuffer::create(primitive.indices);
+		mesh.vao = glow::VertexArray::create(abs, eab, primitive.mode);
+
+		// Material
+		mesh.material.baseColor = primitive.baseColor;
+		mesh.material.roughness = primitive.roughness;
+		mesh.material.metallic = primitive.metallic;
+
+		if (primitive.albedoMap) {
+			auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.albedoMap));
+			if (!textures[pos]) {
+				textures[pos] = primitive.albedoMap->createTexture();
+			}
+
+			mesh.material.colorMap = textures[pos];
+		}
+
+		if (primitive.normalMap) {
+			auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.normalMap));
+			if (!textures[pos]) {
+				textures[pos] = primitive.normalMap->createTexture();
+			}
+
+			mesh.material.normalMap = textures[pos];
+		}
+
+		if (primitive.roughnessMap) {
+			auto pos = std::distance(images.begin(), std::find(images.begin(), images.end(), primitive.roughnessMap));
+			if (!textures[pos]) {
+				textures[pos] = primitive.roughnessMap->createTexture();
+			}
+
+			mesh.material.roughnessMap = textures[pos];
+		}
+
+		if (!irradianceMaps.empty()) {
+			mesh.material.lightMap = irradianceMaps[i];
+		}
+		else {
+			mesh.material.lightMap = defaultIrradianceMap;
+		}
+
+		if (!aoMaps.empty()) {
+			mesh.material.aoMap = aoMaps[i];
+		}
+		else {
+			mesh.material.aoMap = defaultAoMap;
+		}
+
+		meshes.push_back(mesh);
+	}
 }
 
 void Scene::buildPathTracerScene(PathTracer& pathTracer) const {

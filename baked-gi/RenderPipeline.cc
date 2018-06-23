@@ -104,21 +104,22 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		GLOW_SCOPED(clearColor, 1, 1, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		{ // Render objects
+		{ // Render textured objects
+			auto p = objectShader->use();
+			p.setUniform("uView", cam.getViewMatrix());
+			p.setUniform("uProj", cam.getProjectionMatrix());
+			p.setUniform("uCamPos", cam.getPosition());
+			p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+			p.setUniform("uLightDir", glm::normalize(-light->direction));
+			p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+			p.setUniform("uShadowOffset", shadowMapOffset);
+			p.setUniform("uLightMatrix", lightMatrix);
+			p.setTexture("uTextureShadow", shadowBuffer);
+
 			for (const auto& mesh : texturedMeshes) {
-				auto p = objectShader->use();
-				p.setUniform("uView", cam.getViewMatrix());
-				p.setUniform("uProj", cam.getProjectionMatrix());
 				p.setUniform("uModel", mesh.transform);
 				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-				p.setUniform("uCamPos", cam.getPosition());
-				p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-				p.setUniform("uLightDir", glm::normalize(-light->direction));
-				p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
-				p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
-				p.setUniform("uShadowOffset", shadowMapOffset);
-				p.setUniform("uLightMatrix", lightMatrix);
-
 				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 				p.setUniform("uMetallic", mesh.material.metallic);
 				p.setUniform("uRoughness", mesh.material.roughness);
@@ -127,31 +128,32 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 				p.setTexture("uTextureNormal", mesh.material.normalMap);
 				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 				p.setTexture("uTextureAO", mesh.material.aoMap);
-				p.setTexture("uTextureShadow", shadowBuffer);
 
 				mesh.vao->bind().draw();
 			}
-				
+		}
+
+		{ // Render untextured objects
+			auto p = objectNoTexShader->use();
+			p.setUniform("uView", cam.getViewMatrix());
+			p.setUniform("uProj", cam.getProjectionMatrix());
+			p.setUniform("uCamPos", cam.getPosition());
+			p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+			p.setUniform("uLightDir", glm::normalize(-light->direction));
+			p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+			p.setUniform("uShadowOffset", shadowMapOffset);
+			p.setUniform("uLightMatrix", lightMatrix);
+			p.setTexture("uTextureShadow", shadowBuffer);
+
 			for (const auto& mesh : untexturedMeshes) {
-				auto p = objectNoTexShader->use();
-				p.setUniform("uView", cam.getViewMatrix());
-				p.setUniform("uProj", cam.getProjectionMatrix());
 				p.setUniform("uModel", mesh.transform);
 				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-				p.setUniform("uCamPos", cam.getPosition());
-				p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-				p.setUniform("uLightDir", glm::normalize(-light->direction));
-				p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
-				p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
-				p.setUniform("uShadowOffset", shadowMapOffset);
-				p.setUniform("uLightMatrix", lightMatrix);
-
 				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
 				p.setUniform("uMetallic", mesh.material.metallic);
 				p.setUniform("uRoughness", mesh.material.roughness);
 				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 				p.setTexture("uTextureAO", mesh.material.aoMap);
-				p.setTexture("uTextureShadow", shadowBuffer);
 
 				mesh.vao->bind().draw();
 			}
@@ -191,7 +193,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 
 		auto p = blurShader->use();
 
-		for (float offset : {0, 1, 2, 2, 3}) {
+		for (float offset : {0.0f, 1.0f, 2.0f, 2.0f, 3.0f}) {
 			auto fbo = (*blurFbos[currentFbo])->bind();
 			currentFbo = (currentFbo + 1) % 2;
 

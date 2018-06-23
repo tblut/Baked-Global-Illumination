@@ -23,18 +23,18 @@ public:
 
 	DirectionalLight& getSun();
 	const DirectionalLight& getSun() const;
-
-	std::vector<Primitive> primitives;
-	std::vector<Mesh> meshes;
+	const std::vector<Primitive>& getPrimitives() const;
+	const std::vector<Mesh>& getMeshes() const;
+	
 private:
 	// Common
 	DirectionalLight sun;
 
 	// Offline rendering
 	std::vector<SharedImage> images;
-	
+	std::vector<Primitive> primitives;
 
 	// Realtime rendering
 	std::vector<glow::SharedTexture2D> textures;
-	
+	std::vector<Mesh> meshes;
 };

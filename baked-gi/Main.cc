@@ -70,16 +70,16 @@ int main(int argc, char* argv[]) {
 		IlluminationBaker illuminationBaker(pathTracer);
 
 		std::vector<SharedImage> irradianceMaps;
-		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			glow::info() << "Baking irradiance map " << i + 1 << " of " << scene.primitives.size();
-			auto lightMapImage = illuminationBaker.bakeIrradiance(scene.primitives[i], irrWidth, irrHeight, irrSpp);
+		for (std::size_t i = 0; i < scene.getPrimitives().size(); ++i) {
+			glow::info() << "Baking irradiance map " << i + 1 << " of " << scene.getPrimitives().size();
+			auto lightMapImage = illuminationBaker.bakeIrradiance(scene.getPrimitives()[i], irrWidth, irrHeight, irrSpp);
 			irradianceMaps.push_back(lightMapImage);
 		}
 
 		std::vector<SharedImage> aoMaps;
-		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			glow::info() << "Baking ambient occlusion map " << i + 1 << " of " << scene.primitives.size();
-			auto aoImage = illuminationBaker.bakeAmbientOcclusion(scene.primitives[i], aoWidth, aoHeight, aoSpp, 0.15f);
+		for (std::size_t i = 0; i < scene.getPrimitives().size(); ++i) {
+			glow::info() << "Baking ambient occlusion map " << i + 1 << " of " << scene.getPrimitives().size();
+			auto aoImage = illuminationBaker.bakeAmbientOcclusion(scene.getPrimitives()[i], aoWidth, aoHeight, aoSpp, 0.15f);
 			aoMaps.push_back(aoImage);
 		}
 

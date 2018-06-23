@@ -396,3 +396,11 @@ DirectionalLight& Scene::getSun() {
 const DirectionalLight& Scene::getSun() const {
 	return sun;
 }
+
+const std::vector<Primitive>& Scene::getPrimitives() const {
+	return primitives;
+}
+
+const std::vector<Mesh>& Scene::getMeshes() const {
+	return meshes;
+}

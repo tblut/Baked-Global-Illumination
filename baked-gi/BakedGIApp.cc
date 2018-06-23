@@ -79,7 +79,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setClampDepth(clampDepth);
 	debugPathTracer->setClampRadiance(clampRadiance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
-	pipeline->setDebugTexture(showDebugLightMap ? scene.meshes[1].material.lightMap : nullptr, DebugImageLocation::TopRight);
+	pipeline->setDebugTexture(showDebugLightMap ? scene.getMeshes()[1].material.lightMap : nullptr, DebugImageLocation::TopRight);
 	pipeline->setShadowMapSize(shadowMapSize);
 	pipeline->setShadowMapOffset(shadowMapOffset);
 	scene.render(*pipeline);

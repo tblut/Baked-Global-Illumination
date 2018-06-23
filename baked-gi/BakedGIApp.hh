@@ -36,4 +36,6 @@ private:
 	bool showDebugLightMap = false;
 	int shadowMapSize = 4096;
 	float shadowMapOffset = 0.001f;
+	bool useIrradianceMap = true;
+	bool useAOMap = true;
 };

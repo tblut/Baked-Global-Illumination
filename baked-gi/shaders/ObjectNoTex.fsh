@@ -17,6 +17,9 @@ uniform vec3 uAmbientColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 
+uniform bool uUseIrradianceMap;
+uniform bool uUseAOMap;
+
 uniform sampler2D uTextureIrradiance;
 uniform sampler2D uTextureAO;
 
@@ -29,10 +32,18 @@ void main() {
 	float shadowFactor = calcShadowFactor(vLightSpacePos);
 
 	// Shading
-	float ao = texture(uTextureAO, vLightMapTexCoord).r;
-	vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
-	vec3 diffuse = (1.0 - uMetallic) * uBaseColor;
-	fColor = irradiance * diffuse * ao + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;
+	vec3 direct = shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;
+	vec3 indirect = vec3(0.0);
+	if (uUseIrradianceMap) {
+		vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
+		vec3 diffuse = (1.0 - uMetallic) * uBaseColor;
+		indirect += irradiance * diffuse;
+	}
+	if (uUseAOMap) {
+		float ao = texture(uTextureAO, vLightMapTexCoord).r;
+		indirect *= ao;
+	}
+	fColor = direct + indirect;
 
 	// Extract brightness for bloom
 	fBrightColor = max(vec3(0.0), fColor - vec3(0.8));

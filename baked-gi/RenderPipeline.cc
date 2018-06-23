@@ -115,6 +115,8 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
 			p.setUniform("uShadowOffset", shadowMapOffset);
 			p.setUniform("uLightMatrix", lightMatrix);
+			p.setUniform("uUseIrradianceMap", useIrradianceMap);
+			p.setUniform("uUseAOMap", useAOMap);
 			p.setTexture("uTextureShadow", shadowBuffer);
 
 			for (const auto& mesh : texturedMeshes) {
@@ -144,6 +146,8 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
 			p.setUniform("uShadowOffset", shadowMapOffset);
 			p.setUniform("uLightMatrix", lightMatrix);
+			p.setUniform("uUseIrradianceMap", useIrradianceMap);
+			p.setUniform("uUseAOMap", useAOMap);
 			p.setTexture("uTextureShadow", shadowBuffer);
 
 			for (const auto& mesh : untexturedMeshes) {
@@ -271,4 +275,12 @@ void RenderPipeline::setDebugTexture(const glow::SharedTexture2D& texture, Debug
 	else {
 		this->bottomRightDebugTexture = texture;
 	}
+}
+
+void RenderPipeline::setUseIrradianceMap(bool use) {
+	useIrradianceMap = use;
+}
+
+void RenderPipeline::setUseAOMap(bool use) {
+	useAOMap = use;
 }

@@ -28,6 +28,8 @@ public:
 	void setShadowMapOffset(float offset);
 	
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
+	void setUseIrradianceMap(bool use);
+	void setUseAOMap(bool use);
 
 private:
 	glow::SharedTextureRectangle hdrColorBuffer;
@@ -66,4 +68,6 @@ private:
 	const DirectionalLight* light;
 	std::vector<Mesh> texturedMeshes;
 	std::vector<Mesh> untexturedMeshes;
+	bool useIrradianceMap = true;
+	bool useAOMap = true;
 };

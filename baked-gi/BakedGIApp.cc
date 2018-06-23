@@ -71,6 +71,8 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Radiance", TW_TYPE_FLOAT, &clampRadiance, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Lightmap", TW_TYPE_BOOLCPP, &showDebugLightMap, "group=lightmap");
+	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
+	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
@@ -82,6 +84,8 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setDebugTexture(showDebugLightMap ? scene.getMeshes()[1].material.lightMap : nullptr, DebugImageLocation::TopRight);
 	pipeline->setShadowMapSize(shadowMapSize);
 	pipeline->setShadowMapOffset(shadowMapOffset);
+	pipeline->setUseIrradianceMap(useIrradianceMap);
+	pipeline->setUseAOMap(useAOMap);
 	scene.render(*pipeline);
 }
 

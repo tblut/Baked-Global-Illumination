@@ -31,6 +31,11 @@ namespace {
 	}
 }
 
+BakedGIApp::BakedGIApp(const std::string& gltfPath, const std::string& lmPath) {
+	this->gltfPath = gltfPath;
+	this->lmPath = lmPath;
+}
+
 void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
 
@@ -40,7 +45,7 @@ void BakedGIApp::init() {
 	cam->setPosition({ 0, 0, 1 });
 	cam->setTarget({ 0, 0, 0 }, { 0, 1, 0 });
 
-	scene.loadFromGltf(glow::util::pathOf(__FILE__) + "/models/test2.glb");
+	scene.loadFromGltf(gltfPath);// glow::util::pathOf(__FILE__) + "/models/test2.glb");
 
 	pipeline.reset(new RenderPipeline());
 	pipeline->attachCamera(*getCamera());
@@ -49,27 +54,7 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
-	scene.buildRealtimeObjects(glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm");
-	
-	// Bake light and ao maps and save to file
-	/*{
-		debugPathTracer->setMaxPathDepth(5);
-
-		illuminationBaker.reset(new IlluminationBaker(*debugPathTracer));
-		std::vector<SharedImage> irradianceMaps;
-		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			auto lightMapImage = illuminationBaker->bakeIrradiance(scene.primitives[i], 512, 512, 2000);
-			irradianceMaps.push_back(lightMapImage);
-		}
-
-		std::vector<SharedImage> aoMaps;
-		for (std::size_t i = 0; i < scene.primitives.size(); ++i) {
-			auto aoImage = illuminationBaker->bakeAmbientOcclusion(scene.primitives[i], 512, 512, 2000, 0.15f);
-			aoMaps.push_back(aoImage);
-		}
-
-		writeLightMapToFile(glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm", irradianceMaps, aoMaps);
-	}*/
+	scene.buildRealtimeObjects(lmPath);// glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm");
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
@@ -94,7 +79,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setClampDepth(clampDepth);
 	debugPathTracer->setClampRadiance(clampRadiance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
-	//pipeline->setDebugTexture(showDebugLightMap ? scene.meshes.back().material.lightMap : nullptr, DebugImageLocation::TopRight);
+	pipeline->setDebugTexture(showDebugLightMap ? scene.meshes[1].material.lightMap : nullptr, DebugImageLocation::TopRight);
 	pipeline->setShadowMapSize(shadowMapSize);
 	pipeline->setShadowMapOffset(shadowMapOffset);
 	scene.render(*pipeline);

@@ -3,6 +3,7 @@
 #include "PathTracer.hh"
 
 #include <glow/common/log.hh>
+#include <glm/gtc/packing.hpp>
 #include <random>
 
 namespace {
@@ -75,31 +76,41 @@ IlluminationBaker::IlluminationBaker(const PathTracer& pathTracer) : pathTracer(
 }
 
 SharedImage IlluminationBaker::bakeIrradiance(const Primitive& primitive, int width, int height, int samplesPerTexel) {
-	return bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
+	auto values = bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
 		glm::vec3 dir = sampleCosineHemisphere(normal);
 		glm::vec3 irradiance = pathTracer->trace(pos, dir); // dot(N,L) and pdf canceled
 		return irradiance;
 	});
+
+	SharedImage bakedMap = std::make_shared<Image>(width, height, GL_RGB16F);
+	for (int i = 0; i < width * height; ++i) {
+		bakedMap->getDataPtr<glm::u16vec3>()[i] = glm::packHalf(values[i]);
+	}
+	return bakedMap;
 }
 
 SharedImage IlluminationBaker::bakeAmbientOcclusion(const Primitive& primitive, int width, int height,
 													int samplesPerTexel, float maxDistance) {
-	return bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
+	auto values = bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
 		glm::vec3 dir = sampleCosineHemisphere(normal);
 		float occlusionDist = pathTracer->testOcclusionDist(pos, dir);
-		glm::vec3 occlusion(1.0f);
+		float occlusion(1.0f);
 		if (occlusionDist > 0.0f) {
 			float atten = std::max(0.0f, maxDistance - occlusionDist) / maxDistance;
-			occlusion = glm::vec3(0.0f) + atten * atten;
+			occlusion = 0.0f + atten * atten;
 		}
-		return occlusion;
+		return glm::vec3(occlusion);
 	});
+
+	SharedImage bakedMap = std::make_shared<Image>(width, height, GL_R16F);
+	for (int i = 0; i < width * height; ++i) {
+		bakedMap->getDataPtr<glm::uint16>()[i] = glm::packHalf1x16(values[i].x);
+	}
+	return bakedMap;
 }
 
-SharedImage IlluminationBaker::bake(const Primitive& primitive, int width, int height,
-									int samplesPerTexel, const BakeOperator& op) {
-	SharedImage bakedMap = std::make_shared<Image>(width, height, GL_RGB32F);
-
+std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int width, int height,
+											   int samplesPerTexel, const BakeOperator& op) {
 	std::vector<glm::vec3> buffer(width * height, glm::vec3(0.0f));
 	std::vector<int> numSamples(width * height, 0);
 	glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
@@ -150,7 +161,7 @@ SharedImage IlluminationBaker::bake(const Primitive& primitive, int width, int h
 
 					glm::vec3 worldPos = v0 * bary.x + v1 * bary.y + v2 * bary.z;
 					glm::vec3 worldNormal = glm::normalize(n0 * bary.x + n1 * bary.y + n2 * bary.z);
-					glm::vec3 value = op(worldPos, worldNormal);
+					auto value = op(worldPos, worldNormal);
 
 					int imageX = static_cast<int>(texelP.x - 0.5f);
 					int imageY = static_cast<int>(texelP.y - 0.5f);
@@ -162,8 +173,8 @@ SharedImage IlluminationBaker::bake(const Primitive& primitive, int width, int h
 	}
 
 	for (int k = 0; k < buffer.size(); ++k) {
-		bakedMap->getDataPtr<glm::vec3>()[k] = buffer[k] / static_cast<float>(std::max(1, numSamples[k]));
+		buffer[k] /= static_cast<float>(std::max(1, numSamples[k]));
 	}
 
-	return bakedMap;
+	return buffer;
 }

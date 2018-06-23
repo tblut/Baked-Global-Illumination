@@ -29,7 +29,7 @@ void main() {
 	float shadowFactor = calcShadowFactor(vLightSpacePos);
 
 	// Shading
-	vec3 ao = texture(uTextureAO, vLightMapTexCoord).rgb;
+	float ao = texture(uTextureAO, vLightMapTexCoord).r;
 	vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
 	vec3 diffuse = (1.0 - uMetallic) * uBaseColor;
 	fColor = irradiance * diffuse * ao + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;

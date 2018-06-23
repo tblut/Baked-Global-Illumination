@@ -1,5 +1,6 @@
 #include "LightMapWriter.hh"
 
+#include <glm/glm.hpp>
 #include <fstream>
 #include <cstdint>
 
@@ -21,7 +22,7 @@ void writeLightMapToFile(const std::string& path, const std::vector<SharedImage>
 		std::uint32_t height = map->getHeight();
 		outputFile.write(reinterpret_cast<const char*>(&width), sizeof(std::uint32_t));
 		outputFile.write(reinterpret_cast<const char*>(&height), sizeof(std::uint32_t));
-		outputFile.write(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
+		outputFile.write(map->getDataPtr<char>(), width * height * sizeof(glm::u16vec3));
 	}
 
 	for (const auto& map : aoMaps) {
@@ -29,7 +30,7 @@ void writeLightMapToFile(const std::string& path, const std::vector<SharedImage>
 		std::uint32_t height = map->getHeight();
 		outputFile.write(reinterpret_cast<const char*>(&width), sizeof(std::uint32_t));
 		outputFile.write(reinterpret_cast<const char*>(&height), sizeof(std::uint32_t));
-		outputFile.write(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
+		outputFile.write(map->getDataPtr<char>(), width * height * sizeof(glm::uint16));
 	}
 
 	outputFile.close();

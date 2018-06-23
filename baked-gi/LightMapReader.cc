@@ -1,5 +1,6 @@
 #include "LightMapReader.hh"
 
+#include <glm/glm.hpp>
 #include <fstream>
 #include <cstdint>
 
@@ -26,8 +27,8 @@ void readLightMapFromFile(const std::string& path, std::vector<SharedImage>& irr
 		std::uint32_t height;
 		inputFile.read(reinterpret_cast<char*>(&height), sizeof(std::uint32_t));
 
-		SharedImage map = std::make_shared<Image>(width, height, GL_RGB32F);
-		inputFile.read(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
+		SharedImage map = std::make_shared<Image>(width, height, GL_RGB16F);
+		inputFile.read(map->getDataPtr<char>(), width * height * sizeof(glm::u16vec3));
 
 		irradianceMaps.push_back(map);
 	}
@@ -39,8 +40,8 @@ void readLightMapFromFile(const std::string& path, std::vector<SharedImage>& irr
 		std::uint32_t height;
 		inputFile.read(reinterpret_cast<char*>(&height), sizeof(std::uint32_t));
 
-		SharedImage map = std::make_shared<Image>(width, height, GL_RGB32F);
-		inputFile.read(map->getDataPtr<char>(), width * height * sizeof(float) * 3);
+		SharedImage map = std::make_shared<Image>(width, height, GL_R16F);
+		inputFile.read(map->getDataPtr<char>(), width * height * sizeof(glm::uint16));
 
 		aoMaps.push_back(map);
 	}

@@ -17,6 +17,11 @@ Image::Image(int width, int height, GLenum format)
 		bitsPerPixel = 8;
 		break;
 
+	case GL_R16F:
+		channels = 1;
+		bitsPerPixel = 16;
+		break;
+
 	case GL_RGB:
 	case GL_RGB8:
 	case GL_SRGB:
@@ -148,7 +153,10 @@ glow::SharedTexture2D Image::createTexture() const {
 	surface->setWidth(width);
 	surface->setHeight(height);
 
-	if (format == GL_RGB16F || format == GL_RGBA16F || format == GL_RGB32F || format == GL_RGBA32F) {
+	if (format == GL_R16F || format == GL_RGB16F || format == GL_RGBA16F) {
+		surface->setType(GL_HALF_FLOAT);
+	}
+	else if (format == GL_R32F || format == GL_RGB32F || format == GL_RGBA32F) {
 		surface->setType(GL_FLOAT);
 	}
 	else {

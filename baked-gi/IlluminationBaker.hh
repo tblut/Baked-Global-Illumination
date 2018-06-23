@@ -18,7 +18,8 @@ public:
 
 private:
 	using BakeOperator = std::function<glm::vec3(glm::vec3, glm::vec3)>;
-	SharedImage bake(const Primitive& primitive, int width, int height, int samplesPerTexel, const BakeOperator& op);
+
+	std::vector<glm::vec3> bake(const Primitive& primitive, int width, int height, int samplesPerTexel, const BakeOperator& op);
 
 	const PathTracer* pathTracer;
 };

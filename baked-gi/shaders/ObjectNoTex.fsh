@@ -35,11 +35,6 @@ void main() {
 	fColor = irradiance * diffuse * ao + shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;
 
 	// Extract brightness for bloom
-	float brightness = dot(fColor, vec3(0.2126, 0.7152, 0.0722));
-    if(brightness > 1.0) {
-        fBrightColor = fColor;
-    }
-	else {
-        fBrightColor = vec3(0.0);
-	}
+	fBrightColor = max(vec3(0.0), fColor - vec3(0.8));
+	fBrightColor = fBrightColor / (fBrightColor + vec3(1.0));
 }

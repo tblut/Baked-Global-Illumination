@@ -32,6 +32,9 @@ public:
 	void setUseAOMap(bool use);
 
 private:
+	void renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const;
+	void renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const;
+
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
 	glow::SharedTextureRectangle depthBuffer;

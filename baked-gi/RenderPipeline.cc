@@ -74,110 +74,8 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	auto lightProjMatrix = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 150.0f);
 	auto lightMatrix = lightProjMatrix * lightViewMatrix;
 
-	{ // Render scene to shadow map
-		if (shadowBuffer->getWidth() != shadowMapSize) {
-			shadowBuffer->bind().resize(shadowMapSize, shadowMapSize);
-		}
-
-		auto fbo = shadowFbo->bind();
-
-		GLOW_SCOPED(viewport, 0, 0, shadowMapSize, shadowMapSize);
-		GLOW_SCOPED(enable, GL_DEPTH_TEST);
-		GLOW_SCOPED(enable, GL_CULL_FACE);
-		GLOW_SCOPED(depthFunc, GL_LESS);
-		glClear(GL_DEPTH_BUFFER_BIT);
-
-		auto p = shadowShader->use();
-		p.setUniform("uViewProj", lightMatrix);
-
-		for (const auto& mesh : meshes) {
-			p.setUniform("uModel", mesh.transform);
-			mesh.vao->bind().draw();
-		}
-	}
-
-	{ // Render scene to HDR buffer
-		auto fbo = hdrFbo->bind();
-		
-		GLOW_SCOPED(enable, GL_DEPTH_TEST);
-		GLOW_SCOPED(enable, GL_CULL_FACE);
-		GLOW_SCOPED(clearColor, 1, 1, 1, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		{ // Render textured objects
-			auto p = objectShader->use();
-			p.setUniform("uView", cam.getViewMatrix());
-			p.setUniform("uProj", cam.getProjectionMatrix());
-			p.setUniform("uCamPos", cam.getPosition());
-			p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-			p.setUniform("uLightDir", glm::normalize(-light->direction));
-			p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
-			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
-			p.setUniform("uShadowOffset", shadowMapOffset);
-			p.setUniform("uLightMatrix", lightMatrix);
-			p.setUniform("uUseIrradianceMap", useIrradianceMap);
-			p.setUniform("uUseAOMap", useAOMap);
-			p.setTexture("uTextureShadow", shadowBuffer);
-
-			for (const auto& mesh : texturedMeshes) {
-				p.setUniform("uModel", mesh.transform);
-				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-				p.setUniform("uMetallic", mesh.material.metallic);
-				p.setUniform("uRoughness", mesh.material.roughness);
-				p.setTexture("uTextureColor", mesh.material.colorMap);
-				p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
-				p.setTexture("uTextureNormal", mesh.material.normalMap);
-				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
-				p.setTexture("uTextureAO", mesh.material.aoMap);
-
-				mesh.vao->bind().draw();
-			}
-		}
-
-		{ // Render untextured objects
-			auto p = objectNoTexShader->use();
-			p.setUniform("uView", cam.getViewMatrix());
-			p.setUniform("uProj", cam.getProjectionMatrix());
-			p.setUniform("uCamPos", cam.getPosition());
-			p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
-			p.setUniform("uLightDir", glm::normalize(-light->direction));
-			p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
-			p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
-			p.setUniform("uShadowOffset", shadowMapOffset);
-			p.setUniform("uLightMatrix", lightMatrix);
-			p.setUniform("uUseIrradianceMap", useIrradianceMap);
-			p.setUniform("uUseAOMap", useAOMap);
-			p.setTexture("uTextureShadow", shadowBuffer);
-
-			for (const auto& mesh : untexturedMeshes) {
-				p.setUniform("uModel", mesh.transform);
-				p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
-				p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-				p.setUniform("uMetallic", mesh.material.metallic);
-				p.setUniform("uRoughness", mesh.material.roughness);
-				p.setTexture("uTextureIrradiance", mesh.material.lightMap);
-				p.setTexture("uTextureAO", mesh.material.aoMap);
-
-				mesh.vao->bind().draw();
-			}
-		}
-
-		{ // Render skybox
-			GLOW_SCOPED(depthMask, GL_FALSE);
-			GLOW_SCOPED(disable, GL_CULL_FACE);
-			GLOW_SCOPED(depthFunc, GL_LEQUAL);
-
-			glm::mat4 viewNoTranslation = glm::mat4(glm::mat3(cam.getViewMatrix()));
-
-			auto p = skyboxShader->use();
-			p.setUniform("uView", viewNoTranslation);
-			p.setUniform("uProj", cam.getProjectionMatrix());
-			p.setTexture("uSkybox", skybox);
-
-			vaoCube->bind().draw();
-		}
-	}
+	renderSceneToShadowMap(meshes, lightMatrix);
+	renderSceneToHDRBuffer(lightMatrix);
 
 	{ // Bloom
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
@@ -283,4 +181,109 @@ void RenderPipeline::setUseIrradianceMap(bool use) {
 
 void RenderPipeline::setUseAOMap(bool use) {
 	useAOMap = use;
+}
+
+void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const {
+	if (shadowBuffer->getWidth() != shadowMapSize) {
+		shadowBuffer->bind().resize(shadowMapSize, shadowMapSize);
+	}
+
+	auto fbo = shadowFbo->bind();
+
+	GLOW_SCOPED(viewport, 0, 0, shadowMapSize, shadowMapSize);
+	GLOW_SCOPED(enable, GL_DEPTH_TEST);
+	GLOW_SCOPED(enable, GL_CULL_FACE);
+	GLOW_SCOPED(depthFunc, GL_LESS);
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	auto p = shadowShader->use();
+	p.setUniform("uViewProj", lightMatrix);
+
+	for (const auto& mesh : meshes) {
+		p.setUniform("uModel", mesh.transform);
+		mesh.vao->bind().draw();
+	}
+}
+
+void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const {
+	auto fbo = hdrFbo->bind();
+
+	GLOW_SCOPED(enable, GL_DEPTH_TEST);
+	GLOW_SCOPED(enable, GL_CULL_FACE);
+	GLOW_SCOPED(clearColor, 1, 1, 1, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	{ // Render textured objects
+		auto p = objectShader->use();
+		p.setUniform("uView", camera->getViewMatrix());
+		p.setUniform("uProj", camera->getProjectionMatrix());
+		p.setUniform("uCamPos", camera->getPosition());
+		p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+		p.setUniform("uLightDir", glm::normalize(-light->direction));
+		p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+		p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+		p.setUniform("uShadowOffset", shadowMapOffset);
+		p.setUniform("uLightMatrix", lightMatrix);
+		p.setUniform("uUseIrradianceMap", useIrradianceMap);
+		p.setUniform("uUseAOMap", useAOMap);
+		p.setTexture("uTextureShadow", shadowBuffer);
+
+		for (const auto& mesh : texturedMeshes) {
+			p.setUniform("uModel", mesh.transform);
+			p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
+			p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
+			p.setUniform("uMetallic", mesh.material.metallic);
+			p.setUniform("uRoughness", mesh.material.roughness);
+			p.setTexture("uTextureColor", mesh.material.colorMap);
+			p.setTexture("uTextureRoughness", mesh.material.roughnessMap);
+			p.setTexture("uTextureNormal", mesh.material.normalMap);
+			p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+			p.setTexture("uTextureAO", mesh.material.aoMap);
+
+			mesh.vao->bind().draw();
+		}
+	}
+
+	{ // Render untextured objects
+		auto p = objectNoTexShader->use();
+		p.setUniform("uView", camera->getViewMatrix());
+		p.setUniform("uProj", camera->getProjectionMatrix());
+		p.setUniform("uCamPos", camera->getPosition());
+		p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
+		p.setUniform("uLightDir", glm::normalize(-light->direction));
+		p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
+		p.setUniform("uShadowMapSize", glm::vec2(static_cast<float>(shadowMapSize)));
+		p.setUniform("uShadowOffset", shadowMapOffset);
+		p.setUniform("uLightMatrix", lightMatrix);
+		p.setUniform("uUseIrradianceMap", useIrradianceMap);
+		p.setUniform("uUseAOMap", useAOMap);
+		p.setTexture("uTextureShadow", shadowBuffer);
+
+		for (const auto& mesh : untexturedMeshes) {
+			p.setUniform("uModel", mesh.transform);
+			p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
+			p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
+			p.setUniform("uMetallic", mesh.material.metallic);
+			p.setUniform("uRoughness", mesh.material.roughness);
+			p.setTexture("uTextureIrradiance", mesh.material.lightMap);
+			p.setTexture("uTextureAO", mesh.material.aoMap);
+
+			mesh.vao->bind().draw();
+		}
+	}
+
+	{ // Render skybox
+		GLOW_SCOPED(depthMask, GL_FALSE);
+		GLOW_SCOPED(disable, GL_CULL_FACE);
+		GLOW_SCOPED(depthFunc, GL_LEQUAL);
+
+		glm::mat4 viewNoTranslation = glm::mat4(glm::mat3(camera->getViewMatrix()));
+
+		auto p = skyboxShader->use();
+		p.setUniform("uView", viewNoTranslation);
+		p.setUniform("uProj", camera->getProjectionMatrix());
+		p.setTexture("uSkybox", skybox);
+
+		vaoCube->bind().draw();
+	}
 }

@@ -20,6 +20,12 @@
 #include <fstream>
 
 namespace {
+	struct DebugProbeData {
+		RenderPipeline* pipeline;
+		Scene* scene;
+		glow::camera::SharedGenericCamera camera;
+	};
+
 	void debugTrace(void* clientData) {
 		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->traceDebugImage();
@@ -28,6 +34,14 @@ namespace {
 	void saveTrace(void* clientData) {
 		DebugPathTracer* tracer = static_cast<DebugPathTracer*>(clientData);
 		tracer->saveDebugImageToFile(glow::util::pathOf(__FILE__) + "/textures/debugtrace.png");
+	}
+
+	DebugProbeData probeData;
+	void makeDebugProbe(void* clientData) {
+		glm::vec3 envMapPos = probeData.camera->getPosition();
+		auto envMap = probeData.pipeline->renderEnvironmentMap(envMapPos, 256, 256, probeData.scene->getMeshes());
+		envMap->bind().generateMipmaps();
+		probeData.pipeline->setDebugEnvMap(envMap, envMapPos);
 	}
 }
 
@@ -75,6 +89,12 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Show Lightmap", TW_TYPE_BOOLCPP, &showDebugLightMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
+	TwAddButton(tweakbar(), "Make Debuge Probe", makeDebugProbe, nullptr, "group=probes");
+
+	// For setting debug probes
+	probeData.camera = getCamera();
+	probeData.pipeline = pipeline.get();
+	probeData.scene = &scene;
 }
 
 void BakedGIApp::render(float elapsedSeconds) {

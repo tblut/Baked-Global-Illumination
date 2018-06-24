@@ -24,8 +24,11 @@ RenderPipeline::RenderPipeline() {
 	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
 	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
 	debugImageShader = glow::Program::createFromFile(workDir + "/shaders/DebugImage");
+	debugEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/DebugEnvMap");
+
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
+	vaoSphere = glow::geometry::UVSphere<>().generate();
 	
 	hdrColorBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
 	brightnessBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
@@ -57,25 +60,26 @@ RenderPipeline::RenderPipeline() {
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
-	// Sort meshes into the correct bucket
-	texturedMeshes.clear();
-	untexturedMeshes.clear();
-	for (const auto& mesh : meshes) {
-		if (mesh.material.colorMap) {
-			texturedMeshes.push_back(mesh);
-		}
-		else {
-			untexturedMeshes.push_back(mesh);
-		}
-	}
+	fillRenderQueues(meshes);
 
 	const auto& cam = *camera;
-	auto lightViewMatrix = glm::lookAt(cam.getPosition() - light->direction * 50.0f, cam.getPosition(), glm::vec3(0, 1, 0));
-	auto lightProjMatrix = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 150.0f);
-	auto lightMatrix = lightProjMatrix * lightViewMatrix;
+	auto lightMatrix = makeLightMatrix(cam.getPosition());
 
 	renderSceneToShadowMap(meshes, lightMatrix);
 	renderSceneToFBO(hdrFbo, cam, lightMatrix);
+
+	if (debugEnvMap) { // Render debug env map
+		GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(enable, GL_CULL_FACE);
+
+		auto fbo = hdrFbo->bind();
+		auto p = debugEnvMapShader->use();
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uModel", glm::translate(debugEnvMapPosition));
+		p.setTexture("uEnvMap", debugEnvMap);
+		vaoSphere->bind().draw();
+	}
 
 	{ // Bloom
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
@@ -147,6 +151,62 @@ void RenderPipeline::resizeBuffers(int w, int h) {
 	blurColorBufferB->bind().resize(w / 2, h / 2);
 }
 
+glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3& position,
+		int width, int height, const std::vector<Mesh>& meshes) {
+	auto lightMatrix = makeLightMatrix(position);
+	renderSceneToShadowMap(meshes, lightMatrix);
+
+	fillRenderQueues(meshes);
+
+	auto envMap = glow::TextureCubeMap::create(width, height, GL_RGBA16F);
+	auto envDepth = glow::Texture2D::createStorageImmutable(width, height, GL_DEPTH_COMPONENT32);
+	auto envMapFbo = glow::Framebuffer::createDepthOnly(envDepth);
+
+	GLOW_SCOPED(enable, GL_DEPTH_TEST);
+	GLOW_SCOPED(enable, GL_CULL_FACE);
+	GLOW_SCOPED(clearColor, 0, 0, 0, 0);
+
+	/*
+	GL_TEXTURE_CUBE_MAP_POSITIVE_X
+	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+	*/
+	const glm::vec3 faceDirVectors[] = {
+		glm::vec3(1.0f, 0.0f, 0.0f),
+		glm::vec3(-1.0f, 0.0f, 0.0f),
+		glm::vec3(0.0f, 1.0f, 0.0f),
+		glm::vec3(0.0f, -1.0f, 0.0f),
+		glm::vec3(0.0f, 0.0f, 1.0f),
+		glm::vec3(0.0f, 0.0f, -1.0f)
+	};
+
+	const glm::vec3 faceUpVectors[] = {
+		glm::vec3(0.0f, -1.0f, 0.0f),
+		glm::vec3(0.0f, -1.0f, 0.0f),
+		glm::vec3(0.0f, 0.0f, 1.0f),
+		glm::vec3(0.0f, 0.0f, -1.0f),
+		glm::vec3(0.0f, -1.0f, 0.0f),
+		glm::vec3(0.0f, -1.0f, 0.0f)
+	};
+
+	glow::camera::GenericCamera envMapCam;
+	envMapCam.setViewportSize(width, height);
+	envMapCam.setAspectRatio(width / static_cast<float>(height));
+	envMapCam.setVerticalFieldOfView(90.0f);
+	envMapCam.setPosition(position);
+
+	for (int faceID = 0; faceID < 6; ++faceID) {
+		envMapFbo->bind().attachColor("fColor", envMap, 0, faceID);
+		envMapCam.setLookAtMatrix(position, position + faceDirVectors[faceID], faceUpVectors[faceID]);
+		renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
+	}
+
+	return envMap;
+}
+
 void RenderPipeline::setAmbientColor(const glm::vec3& color) {
 	ambientColor = color;
 }
@@ -174,6 +234,11 @@ void RenderPipeline::setDebugTexture(const glow::SharedTexture2D& texture, Debug
 	else {
 		this->bottomRightDebugTexture = texture;
 	}
+}
+
+void RenderPipeline::setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position) {
+	debugEnvMap = cubeMap;
+	debugEnvMapPosition = position;
 }
 
 void RenderPipeline::setUseIrradianceMap(bool use) {
@@ -299,4 +364,24 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 
 		vaoCube->bind().draw();
 	}
+}
+
+void RenderPipeline::fillRenderQueues(const std::vector<Mesh>& meshes) {
+	texturedMeshes.clear();
+	untexturedMeshes.clear();
+	for (const auto& mesh : meshes) {
+		if (mesh.material.colorMap) {
+			texturedMeshes.push_back(mesh);
+		}
+		else {
+			untexturedMeshes.push_back(mesh);
+		}
+	}
+}
+
+glm::mat4 RenderPipeline::makeLightMatrix(const glm::vec3& camPos) const {
+	auto lightViewMatrix = glm::lookAt(camPos - light->direction * 50.0f, camPos, glm::vec3(0, 1, 0));
+	auto lightProjMatrix = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 150.0f);
+	auto lightMatrix = lightProjMatrix * lightViewMatrix;
+	return lightMatrix;
 }

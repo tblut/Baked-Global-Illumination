@@ -20,6 +20,9 @@ public:
 	void render(const std::vector<Mesh>& meshes);
 	void resizeBuffers(int w, int h);
 
+	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position,
+		int width, int height, const std::vector<Mesh>& meshes);
+
 	void setAmbientColor(const glm::vec3& color);
 	void attachCamera(const glow::camera::GenericCamera& camera);
 	void attachLight(const DirectionalLight& light);
@@ -28,6 +31,7 @@ public:
 	void setShadowMapOffset(float offset);
 	
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
+	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
 	void setBloomPercentage(float value);
@@ -38,6 +42,8 @@ private:
 	void renderSceneToFBO(const glow::SharedFramebuffer& targetFbo,
 						  const glow::camera::GenericCamera& cam,
 						  const glm::mat4& lightMatrix) const;
+	void fillRenderQueues(const std::vector<Mesh>& meshes);
+	glm::mat4 makeLightMatrix(const glm::vec3& camPos) const;
 
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -62,12 +68,15 @@ private:
 	glow::SharedProgram blurShader;
 	glow::SharedProgram postProcessShader;
 	glow::SharedProgram debugImageShader;
+	glow::SharedProgram debugEnvMapShader;
 
 	glow::SharedVertexArray vaoQuad;
 	glow::SharedVertexArray vaoCube;
+	glow::SharedVertexArray vaoSphere;
 
 	glow::SharedTexture2D topRightDebugTexture;
 	glow::SharedTexture2D bottomRightDebugTexture;
+	glow::SharedTextureCubeMap debugEnvMap;
 	glow::SharedTextureCubeMap skybox;
 
 	const glow::camera::GenericCamera* camera;
@@ -79,4 +88,5 @@ private:
 	bool useAOMap = true;
 	float bloomPercentage = 0.05f;
 	float exposureAdjustment = 8.0f;
+	glm::vec3 debugEnvMapPosition;
 };

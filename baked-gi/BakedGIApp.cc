@@ -90,6 +90,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
 	TwAddButton(tweakbar(), "Make Debuge Probe", makeDebugProbe, nullptr, "group=probes");
+	TwAddVarRW(tweakbar(), "Probe Mip Level", TW_TYPE_INT32, &debugEnvMapMipLevel, "group=probes min=0");
 
 	// For setting debug probes
 	probeData.camera = getCamera();
@@ -110,6 +111,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setUseAOMap(useAOMap);
 	pipeline->setBloomPercentage(bloomPercentage);
 	pipeline->setExposureAdjustment(exposureAdjustment);
+	pipeline->setDebugEnvMapMipLevel(debugEnvMapMipLevel);
 	scene.render(*pipeline);
 }
 

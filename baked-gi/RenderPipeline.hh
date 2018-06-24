@@ -32,6 +32,7 @@ public:
 	
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
+	void setDebugEnvMapMipLevel(int value);
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
 	void setBloomPercentage(float value);
@@ -89,4 +90,5 @@ private:
 	float bloomPercentage = 0.05f;
 	float exposureAdjustment = 8.0f;
 	glm::vec3 debugEnvMapPosition;
+	int debugEnvMapMipLevel = 0;
 };

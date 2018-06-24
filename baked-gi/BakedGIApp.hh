@@ -40,4 +40,5 @@ private:
 	bool useAOMap = true;
 	float bloomPercentage = 0.05f;
 	float exposureAdjustment = 8.0f;
+	int debugEnvMapMipLevel = 0;
 };

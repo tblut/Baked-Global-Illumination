@@ -78,6 +78,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		p.setUniform("uProj", cam.getProjectionMatrix());
 		p.setUniform("uModel", glm::translate(debugEnvMapPosition));
 		p.setTexture("uEnvMap", debugEnvMap);
+		p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
 		vaoSphere->bind().draw();
 	}
 
@@ -239,6 +240,10 @@ void RenderPipeline::setDebugTexture(const glow::SharedTexture2D& texture, Debug
 void RenderPipeline::setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position) {
 	debugEnvMap = cubeMap;
 	debugEnvMapPosition = position;
+}
+
+void RenderPipeline::setDebugEnvMapMipLevel(int value) {
+	debugEnvMapMipLevel = value;
 }
 
 void RenderPipeline::setUseIrradianceMap(bool use) {

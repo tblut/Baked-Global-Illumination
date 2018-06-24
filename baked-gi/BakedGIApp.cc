@@ -58,10 +58,12 @@ void BakedGIApp::init() {
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
-	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light");
+	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.1 step=0.1");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Size", TW_TYPE_UINT32, &shadowMapSize, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Offset", TW_TYPE_FLOAT, &shadowMapOffset, "group=light step=0.0001");
+	TwAddVarRW(tweakbar(), "Bloom %", TW_TYPE_FLOAT, &bloomPercentage, "group=postprocess min=0.0 step=0.01");
+	TwAddVarRW(tweakbar(), "Exposure", TW_TYPE_FLOAT, &exposureAdjustment, "group=postprocess min=0.0 step=0.5");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddButton(tweakbar(), "Save Trace", saveTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
@@ -86,6 +88,8 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setShadowMapOffset(shadowMapOffset);
 	pipeline->setUseIrradianceMap(useIrradianceMap);
 	pipeline->setUseAOMap(useAOMap);
+	pipeline->setBloomPercentage(bloomPercentage);
+	pipeline->setExposureAdjustment(exposureAdjustment);
 	scene.render(*pipeline);
 }
 

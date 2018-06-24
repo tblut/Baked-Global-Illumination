@@ -1,4 +1,5 @@
 #include "FXAA.glsl"
+#include "Tonemap.glsl"
 
 uint wang_hash(uint seed) {
     seed = (seed ^ 61u) ^ (seed >> 16u);
@@ -19,17 +20,14 @@ uniform sampler2DRect uBloomBuffer;
 out vec3 fColor;
 
 void main() {
-	ivec2 coords = ivec2(gl_FragCoord.xy);
-
     // FXAA
     vec3 hdrColor = fxaa(uHdrBuffer, gl_FragCoord.xy).rgb;
 
-    // Reinhard tone mapping
-    vec3 ldrColor = hdrColor / (hdrColor + vec3(1.0));
-
 	// Apply bloom
-	vec3 bloomColor = texture(uBloomBuffer, gl_FragCoord.xy / 2).rgb;
-	ldrColor += bloomColor * 0.5;
+	hdrColor += texture(uBloomBuffer, gl_FragCoord.xy / 2).rgb;;
+
+    // Tone mapping
+	vec3 ldrColor = filmicTonemap(hdrColor);
 
     // Gamma correction 
     ldrColor = pow(ldrColor, vec3(1.0 / 2.2));

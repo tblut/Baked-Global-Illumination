@@ -17,6 +17,7 @@ uniform vec3 uAmbientColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 
+uniform float uBloomPercentage;
 uniform bool uUseIrradianceMap;
 uniform bool uUseAOMap;
 
@@ -43,9 +44,8 @@ void main() {
 		float ao = texture(uTextureAO, vLightMapTexCoord).r;
 		indirect *= ao;
 	}
-	fColor = direct + indirect;
+	vec3 color = direct + indirect;
 
-	// Extract brightness for bloom
-	fBrightColor = max(vec3(0.0), fColor - vec3(0.8));
-	fBrightColor = fBrightColor / (fBrightColor + vec3(1.0));
+	fColor = color * (1.0 - uBloomPercentage);
+	fBrightColor = color * uBloomPercentage;
 }

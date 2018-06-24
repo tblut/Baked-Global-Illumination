@@ -30,10 +30,14 @@ public:
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
+	void setBloomPercentage(float value);
+	void setExposureAdjustment(float value);
 
 private:
 	void renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const;
-	void renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const;
+	void renderSceneToFBO(const glow::SharedFramebuffer& targetFbo,
+						  const glow::camera::GenericCamera& cam,
+						  const glm::mat4& lightMatrix) const;
 
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -73,4 +77,6 @@ private:
 	std::vector<Mesh> untexturedMeshes;
 	bool useIrradianceMap = true;
 	bool useAOMap = true;
+	float bloomPercentage = 0.05f;
+	float exposureAdjustment = 8.0f;
 };

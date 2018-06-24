@@ -38,4 +38,6 @@ private:
 	float shadowMapOffset = 0.001f;
 	bool useIrradianceMap = true;
 	bool useAOMap = true;
+	float bloomPercentage = 0.05f;
+	float exposureAdjustment = 8.0f;
 };

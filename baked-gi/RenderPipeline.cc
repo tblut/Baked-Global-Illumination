@@ -75,7 +75,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	auto lightMatrix = lightProjMatrix * lightViewMatrix;
 
 	renderSceneToShadowMap(meshes, lightMatrix);
-	renderSceneToHDRBuffer(lightMatrix);
+	renderSceneToFBO(hdrFbo, cam, lightMatrix);
 
 	{ // Bloom
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
@@ -110,6 +110,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		GLOW_SCOPED(disable, GL_CULL_FACE);
 
 		auto p = postProcessShader->use();
+		p.setUniform("uExposureAdjustment", exposureAdjustment);
 		p.setTexture("uHdrBuffer", hdrColorBuffer);
 		p.setTexture("uBloomBuffer", blurColorBufferB);
 		vaoQuad->bind().draw();
@@ -183,6 +184,14 @@ void RenderPipeline::setUseAOMap(bool use) {
 	useAOMap = use;
 }
 
+void RenderPipeline::setBloomPercentage(float value) {
+	bloomPercentage = value;
+}
+
+void RenderPipeline::setExposureAdjustment(float value) {
+	exposureAdjustment = value;
+}
+
 void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const {
 	if (shadowBuffer->getWidth() != shadowMapSize) {
 		shadowBuffer->bind().resize(shadowMapSize, shadowMapSize);
@@ -205,8 +214,9 @@ void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, con
 	}
 }
 
-void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const {
-	auto fbo = hdrFbo->bind();
+void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, const glow::camera::GenericCamera& cam,
+									  const glm::mat4& lightMatrix) const {
+	auto fbo = targetFbo->bind();
 
 	GLOW_SCOPED(enable, GL_DEPTH_TEST);
 	GLOW_SCOPED(enable, GL_CULL_FACE);
@@ -215,9 +225,9 @@ void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const 
 
 	{ // Render textured objects
 		auto p = objectShader->use();
-		p.setUniform("uView", camera->getViewMatrix());
-		p.setUniform("uProj", camera->getProjectionMatrix());
-		p.setUniform("uCamPos", camera->getPosition());
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uCamPos", cam.getPosition());
 		p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
 		p.setUniform("uLightDir", glm::normalize(-light->direction));
 		p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
@@ -226,6 +236,7 @@ void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const 
 		p.setUniform("uLightMatrix", lightMatrix);
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
+		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uTextureShadow", shadowBuffer);
 
 		for (const auto& mesh : texturedMeshes) {
@@ -246,9 +257,9 @@ void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const 
 
 	{ // Render untextured objects
 		auto p = objectNoTexShader->use();
-		p.setUniform("uView", camera->getViewMatrix());
-		p.setUniform("uProj", camera->getProjectionMatrix());
-		p.setUniform("uCamPos", camera->getPosition());
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uCamPos", cam.getPosition());
 		p.setUniform("uAmbientColor", gammaToLinear(ambientColor));
 		p.setUniform("uLightDir", glm::normalize(-light->direction));
 		p.setUniform("uLightColor", gammaToLinear(light->color) * light->power);
@@ -257,6 +268,7 @@ void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const 
 		p.setUniform("uLightMatrix", lightMatrix);
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
+		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uTextureShadow", shadowBuffer);
 
 		for (const auto& mesh : untexturedMeshes) {
@@ -277,11 +289,12 @@ void RenderPipeline::renderSceneToHDRBuffer(const glm::mat4& lightMatrix) const 
 		GLOW_SCOPED(disable, GL_CULL_FACE);
 		GLOW_SCOPED(depthFunc, GL_LEQUAL);
 
-		glm::mat4 viewNoTranslation = glm::mat4(glm::mat3(camera->getViewMatrix()));
+		glm::mat4 viewNoTranslation = glm::mat4(glm::mat3(cam.getViewMatrix()));
 
 		auto p = skyboxShader->use();
 		p.setUniform("uView", viewNoTranslation);
-		p.setUniform("uProj", camera->getProjectionMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uSkybox", skybox);
 
 		vaoCube->bind().draw();

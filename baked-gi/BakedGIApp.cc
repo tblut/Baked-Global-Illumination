@@ -39,8 +39,8 @@ namespace {
 	DebugProbeData probeData;
 	void makeDebugProbe(void* clientData) {
 		glm::vec3 envMapPos = probeData.camera->getPosition();
-		auto envMap = probeData.pipeline->renderEnvironmentMap(envMapPos, 256, 256, probeData.scene->getMeshes());
-		envMap->bind().generateMipmaps();
+		auto envMap = probeData.pipeline->renderEnvironmentMap(envMapPos, 256, probeData.scene->getMeshes());
+		//envMap->bind().generateMipmaps();
 		probeData.pipeline->setDebugEnvMap(envMap, envMapPos);
 	}
 }

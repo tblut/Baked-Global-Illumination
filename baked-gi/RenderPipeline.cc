@@ -25,6 +25,8 @@ RenderPipeline::RenderPipeline() {
 	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
 	debugImageShader = glow::Program::createFromFile(workDir + "/shaders/DebugImage");
 	debugEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/DebugEnvMap");
+	precalcEnvBrdfLutShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvBrdfLut.csh");
+	precalcEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMap.csh");
 
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
@@ -57,6 +59,17 @@ RenderPipeline::RenderPipeline() {
 		pbt + "/posz.jpg",
 		pbt + "/negz.jpg",
 		glow::ColorSpace::sRGB));
+
+	envLutGGX = computeEnvLutGGX(64, 64);
+
+	auto tex = glow::TextureCubeMap::createStorageImmutable(512, 512, GL_RGBA16F);
+	{
+		auto t = tex->bind();
+		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		t.setMagFilter(GL_LINEAR);
+		t.generateMipmaps();
+	}
+	envMapGGX = tex;
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
@@ -152,15 +165,14 @@ void RenderPipeline::resizeBuffers(int w, int h) {
 	blurColorBufferB->bind().resize(w / 2, h / 2);
 }
 
-glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3& position,
-		int width, int height, const std::vector<Mesh>& meshes) {
+glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes) {
 	auto lightMatrix = makeLightMatrix(position);
 	renderSceneToShadowMap(meshes, lightMatrix);
 
 	fillRenderQueues(meshes);
 
-	auto envMap = glow::TextureCubeMap::create(width, height, GL_RGBA16F);
-	auto envDepth = glow::Texture2D::createStorageImmutable(width, height, GL_DEPTH_COMPONENT32);
+	auto envMap = glow::TextureCubeMap::createStorageImmutable(size, size, GL_RGBA16F);
+	auto envDepth = glow::Texture2D::createStorageImmutable(size, size, GL_DEPTH_COMPONENT32);
 	auto envMapFbo = glow::Framebuffer::createDepthOnly(envDepth);
 
 	GLOW_SCOPED(enable, GL_DEPTH_TEST);
@@ -194,8 +206,8 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	};
 
 	glow::camera::GenericCamera envMapCam;
-	envMapCam.setViewportSize(width, height);
-	envMapCam.setAspectRatio(width / static_cast<float>(height));
+	envMapCam.setViewportSize(size, size);
+	envMapCam.setAspectRatio(size / static_cast<float>(size));
 	envMapCam.setVerticalFieldOfView(90.0f);
 	envMapCam.setPosition(position);
 
@@ -205,7 +217,9 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 		renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
 	}
 
-	return envMap;
+	this->envMapGGX = computeEnvMapGGX(envMap, size);
+
+	return envMapGGX;
 }
 
 void RenderPipeline::setAmbientColor(const glm::vec3& color) {
@@ -293,7 +307,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 	GLOW_SCOPED(clearColor, 1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	{ // Render textured objects
+	if (!texturedMeshes.empty()) { // Render textured objects
 		auto p = objectShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
@@ -308,6 +322,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uTextureShadow", shadowBuffer);
+		p.setTexture("uEnvMapGGX", envMapGGX);
+		p.setTexture("uEnvLutGGX", envLutGGX);
 
 		for (const auto& mesh : texturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -325,7 +341,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		}
 	}
 
-	{ // Render untextured objects
+	if (!untexturedMeshes.empty()) { // Render untextured objects
 		auto p = objectNoTexShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
@@ -340,6 +356,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uTextureShadow", shadowBuffer);
+		p.setTexture("uEnvMapGGX", envMapGGX);
+		p.setTexture("uEnvLutGGX", envLutGGX);
 
 		for (const auto& mesh : untexturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -389,4 +407,50 @@ glm::mat4 RenderPipeline::makeLightMatrix(const glm::vec3& camPos) const {
 	auto lightProjMatrix = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 150.0f);
 	auto lightMatrix = lightProjMatrix * lightViewMatrix;
 	return lightMatrix;
+}
+
+glow::SharedTexture2D RenderPipeline::computeEnvLutGGX(int width, int height) const {
+	auto tex = glow::Texture2D::createStorageImmutable(width, height, GL_RG16F, 1);
+	{
+		auto t = tex->bind();
+		t.setMinFilter(GL_LINEAR);
+		t.setMagFilter(GL_LINEAR);
+		t.setWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+	}
+
+	const int localSize = 4;
+	{
+		auto p = precalcEnvBrdfLutShader->use();
+		p.setImage(0, tex, GL_WRITE_ONLY);
+		p.compute((width - 1) / localSize + 1, (height - 1) / localSize + 1);
+	}
+
+	return tex;
+}
+
+glow::SharedTextureCubeMap RenderPipeline::computeEnvMapGGX(const glow::SharedTextureCubeMap& envMap, int size) const {
+	auto tex = glow::TextureCubeMap::createStorageImmutable(size, size, GL_RGBA16F);
+	{
+		auto t = tex->bind();
+		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		t.setMagFilter(GL_LINEAR);
+	}
+
+	const int localSize = 4;
+	{
+		auto p = precalcEnvMapShader->use();
+		p.setTexture("uEnvMap", envMap);
+		int miplevel = 0;
+		int maxLevel = static_cast<int>(glm::floor(glm::log2(static_cast<float>(size))));
+		for (int tsize = size; tsize > 0; tsize /= 2) {
+			auto roughness = miplevel / (float)maxLevel;
+			p.setUniform("uRoughness", roughness);
+			p.setImage(0, tex, GL_WRITE_ONLY, miplevel);
+			p.compute((tsize - 1) / localSize + 1, (tsize - 1) / localSize + 1, 6);
+			++miplevel;
+		}
+	}
+
+	tex->setMipmapsGenerated(true);
+	return tex;
 }

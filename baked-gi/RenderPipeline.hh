@@ -20,8 +20,7 @@ public:
 	void render(const std::vector<Mesh>& meshes);
 	void resizeBuffers(int w, int h);
 
-	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position,
-		int width, int height, const std::vector<Mesh>& meshes);
+	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
 
 	void setAmbientColor(const glm::vec3& color);
 	void attachCamera(const glow::camera::GenericCamera& camera);
@@ -45,6 +44,8 @@ private:
 						  const glm::mat4& lightMatrix) const;
 	void fillRenderQueues(const std::vector<Mesh>& meshes);
 	glm::mat4 makeLightMatrix(const glm::vec3& camPos) const;
+	glow::SharedTexture2D computeEnvLutGGX(int width, int height) const;
+	glow::SharedTextureCubeMap computeEnvMapGGX(const glow::SharedTextureCubeMap& envMap, int size) const;
 
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -70,6 +71,8 @@ private:
 	glow::SharedProgram postProcessShader;
 	glow::SharedProgram debugImageShader;
 	glow::SharedProgram debugEnvMapShader;
+	glow::SharedProgram precalcEnvBrdfLutShader;
+	glow::SharedProgram precalcEnvMapShader;
 
 	glow::SharedVertexArray vaoQuad;
 	glow::SharedVertexArray vaoCube;
@@ -79,6 +82,8 @@ private:
 	glow::SharedTexture2D bottomRightDebugTexture;
 	glow::SharedTextureCubeMap debugEnvMap;
 	glow::SharedTextureCubeMap skybox;
+	glow::SharedTexture2D envLutGGX;
+	glow::SharedTextureCubeMap envMapGGX;
 
 	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.0f);

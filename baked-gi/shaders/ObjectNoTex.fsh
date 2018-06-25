@@ -33,7 +33,10 @@ void main() {
 	float shadowFactor = calcShadowFactor(vLightSpacePos);
 
 	// Shading
-	vec3 direct = shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;
+	vec3 direct = shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor;
+	direct += iblSpecularGGX(N, V, uBaseColor, uRoughness, uMetallic);
+	direct *= shadowFactor;
+
 	vec3 indirect = vec3(0.0);
 	if (uUseIrradianceMap) {
 		vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;

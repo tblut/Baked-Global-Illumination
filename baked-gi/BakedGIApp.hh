@@ -34,11 +34,12 @@ private:
 	unsigned int clampDepth = 0;
 	float clampRadiance = 25.0f;
 	bool showDebugLightMap = false;
+	int lightMapIndex = 0;
 	int shadowMapSize = 4096;
 	float shadowMapOffset = 0.001f;
 	bool useIrradianceMap = true;
 	bool useAOMap = true;
-	float bloomPercentage = 0.05f;
-	float exposureAdjustment = 8.0f;
+	float bloomPercentage = 0.02f;
+	float exposureAdjustment = 1.0f;
 	int debugEnvMapMipLevel = 0;
 };

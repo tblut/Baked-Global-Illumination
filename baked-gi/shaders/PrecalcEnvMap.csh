@@ -12,7 +12,7 @@ vec3 PrefilterEnvMap(float Roughness, vec3 R)
 	vec3 color = vec3(0, 0, 0);
 	float totalWeight = 0;
 
-	const int samples = int(max(1.0, 1024.0 * pow(uRoughness, 0.3)));
+	const int samples = 1024;
 
 	for (int i = 0; i < samples; ++i)
 	{
@@ -20,10 +20,10 @@ vec3 PrefilterEnvMap(float Roughness, vec3 R)
 		vec3 H = ImportanceSampleGGX(Xi, Roughness, N);
 		vec3 L = 2 * dot(V, H) * H - V;
 
-		float dotNL = dot(N, L);
+		float dotNL = max(0.0, dot(N, L));
 		if (dotNL > 0)
 		{
-			color += textureLod(uEnvMap, L, 0).rgb;
+			color += textureLod(uEnvMap, L, 0).rgb * dotNL;
 			totalWeight += dotNL;
 		}
 	}

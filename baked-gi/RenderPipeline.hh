@@ -92,8 +92,8 @@ private:
 	std::vector<Mesh> untexturedMeshes;
 	bool useIrradianceMap = true;
 	bool useAOMap = true;
-	float bloomPercentage = 0.05f;
-	float exposureAdjustment = 8.0f;
+	float bloomPercentage = 0.02f;
+	float exposureAdjustment = 1.0f;
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
 };

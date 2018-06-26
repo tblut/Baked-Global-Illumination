@@ -20,7 +20,7 @@ vec2 IntegrateBRDF(float Roughness, float dotNV)
 	{
 		vec2 Xi = Hammersley(i, samples);
 		vec3 H = ImportanceSampleGGX(Xi, Roughness, N);
-		vec3 L = 2 * dot(V, H) * H - V;
+		vec3 L = normalize(2 * dot(V, H) * H - V);
 
 		float dotNL = max(L.z, 0.0);
 		float dotNH = max(H.z, 0.0);

@@ -77,7 +77,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Shadow Map Size", TW_TYPE_UINT32, &shadowMapSize, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Offset", TW_TYPE_FLOAT, &shadowMapOffset, "group=light step=0.0001");
 	TwAddVarRW(tweakbar(), "Bloom %", TW_TYPE_FLOAT, &bloomPercentage, "group=postprocess min=0.0 step=0.01");
-	TwAddVarRW(tweakbar(), "Exposure", TW_TYPE_FLOAT, &exposureAdjustment, "group=postprocess min=0.0 step=0.5");
+	TwAddVarRW(tweakbar(), "Exposure", TW_TYPE_FLOAT, &exposureAdjustment, "group=postprocess min=0.0 step=0.1");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddButton(tweakbar(), "Save Trace", saveTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
@@ -87,6 +87,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Radiance", TW_TYPE_FLOAT, &clampRadiance, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Lightmap", TW_TYPE_BOOLCPP, &showDebugLightMap, "group=lightmap");
+	TwAddVarRW(tweakbar(), "Lightmap Index", TW_TYPE_INT32, &lightMapIndex, "group=lightmap min=0 step=1");
 	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
 	TwAddButton(tweakbar(), "Make Debuge Probe", makeDebugProbe, nullptr, "group=probes");
@@ -104,7 +105,8 @@ void BakedGIApp::render(float elapsedSeconds) {
 	debugPathTracer->setClampDepth(clampDepth);
 	debugPathTracer->setClampRadiance(clampRadiance);
 	pipeline->setDebugTexture(showDebugImage ? debugPathTracer->getDebugTexture() : nullptr, DebugImageLocation::BottomRight);
-	pipeline->setDebugTexture(showDebugLightMap ? scene.getMeshes()[1].material.lightMap : nullptr, DebugImageLocation::TopRight);
+	lightMapIndex = std::min(lightMapIndex, (int) scene.getMeshes().size() - 1);
+	pipeline->setDebugTexture(showDebugLightMap ? scene.getMeshes()[lightMapIndex].material.lightMap : nullptr, DebugImageLocation::TopRight);
 	pipeline->setShadowMapSize(shadowMapSize);
 	pipeline->setShadowMapOffset(shadowMapOffset);
 	pipeline->setUseIrradianceMap(useIrradianceMap);

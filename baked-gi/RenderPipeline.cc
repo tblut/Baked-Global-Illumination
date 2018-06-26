@@ -70,6 +70,8 @@ RenderPipeline::RenderPipeline() {
 		t.generateMipmaps();
 	}
 	envMapGGX = tex;
+
+	this->envMapGGX = computeEnvMapGGX(skybox, 512);
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
@@ -211,12 +213,22 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	envMapCam.setVerticalFieldOfView(90.0f);
 	envMapCam.setPosition(position);
 
+	auto tex = glow::TextureCubeMap::createStorageImmutable(512, 512, GL_RGBA16F);
+	{
+		auto t = tex->bind();
+		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		t.setMagFilter(GL_LINEAR);
+		t.generateMipmaps();
+	}
+	envMapGGX = tex;
+
 	for (int faceID = 0; faceID < 6; ++faceID) {
 		envMapFbo->bind().attachColor("fColor", envMap, 0, faceID);
 		envMapCam.setLookAtMatrix(position, position + faceDirVectors[faceID], faceUpVectors[faceID]);
 		renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
 	}
 
+	
 	this->envMapGGX = computeEnvMapGGX(envMap, size);
 
 	return envMapGGX;

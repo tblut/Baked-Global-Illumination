@@ -28,6 +28,7 @@ private:
 	std::unique_ptr<DebugPathTracer> debugPathTracer;
     std::unique_ptr<IlluminationBaker> illuminationBaker;
 	bool showDebugImage = false;
+    float lastDebugTraceScale = -1.0f; // force update on first frame
 	float debugTraceScale = 0.5f;
 	unsigned int samplesPerPixel = 100;
 	unsigned int maxPathDepth = 3;

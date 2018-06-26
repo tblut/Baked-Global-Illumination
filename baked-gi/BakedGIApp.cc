@@ -101,6 +101,14 @@ void BakedGIApp::init() {
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
+    if (glm::abs(lastDebugTraceScale - debugTraceScale) > 0.001) {
+        debugPathTracer->setDebugImageSize(
+            static_cast<int>(getCamera()->getViewportWidth() * debugTraceScale),
+            static_cast<int>(getCamera()->getViewportHeight() * debugTraceScale)
+        );
+        lastDebugTraceScale = debugTraceScale;
+    }
+    
 	debugPathTracer->setSamplesPerPixel(samplesPerPixel);
 	debugPathTracer->setMaxPathDepth(maxPathDepth);
 	debugPathTracer->setClampDepth(clampDepth);
@@ -121,8 +129,4 @@ void BakedGIApp::render(float elapsedSeconds) {
 void BakedGIApp::onResize(int w, int h) {
 	glow::glfw::GlfwApp::onResize(w, h);
 	pipeline->resizeBuffers(w, h);
-	
-	debugPathTracer->setDebugImageSize(
-		static_cast<int>(getCamera()->getViewportWidth() * debugTraceScale),
-		static_cast<int>(getCamera()->getViewportHeight() * debugTraceScale));
 }

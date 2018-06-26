@@ -1,3 +1,5 @@
+#include "CubeMapUtils.glsl"
+
 uniform samplerCube uEnvMapGGX;
 uniform sampler2D uEnvLutGGX;
 
@@ -41,9 +43,9 @@ vec3 shadingGGX(vec3 N, vec3 V, vec3 L, vec3 color, float roughness, float metal
     return shadingDiffuse + shadingSpecularGGX(N, V, L, max(0.01, roughness), specular);
 }
 
-vec3 iblSpecularGGX(vec3 N, vec3 V, vec3 color, float roughness, float metallic) {
+vec3 iblSpecularGGX(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float metallic) {
     float dotNV = max(dot(N, V), 0.0);
-    vec3 R = 2 * dot(N, V) * N - V;
+    //vec3 R = reflect(-V, N);//2 * dot(N, V) * N - V;
 
     vec3 specularColor = mix(vec3(0.04), color, metallic);
 

@@ -32,10 +32,13 @@ public:
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
 	void setDebugEnvMapMipLevel(int value);
+    
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
 	void setBloomPercentage(float value);
 	void setExposureAdjustment(float value);
+    
+    void setProbe(const glm::vec3& pos, const glm::vec3& halfExtents);
 
 private:
 	void renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const;
@@ -96,4 +99,8 @@ private:
 	float exposureAdjustment = 1.0f;
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
+    
+    glm::vec3 probePos;
+    glm::vec3 probeAabbMin = glm::vec3(-5.0f);
+    glm::vec3 probeAabbMax = glm::vec3(5.0f);
 };

@@ -1,5 +1,6 @@
 #include "BRDF.glsl"
 #include "Shadow.glsl"
+#include "CubeMapUtils.glsl"
 
 in vec3 vWorldPos;
 in vec3 vNormal;
@@ -21,6 +22,10 @@ uniform float uBloomPercentage;
 uniform bool uUseIrradianceMap;
 uniform bool uUseAOMap;
 
+uniform vec3 uProbePos;
+uniform vec3 uAABBMin;
+uniform vec3 uAABBMax;
+
 uniform sampler2D uTextureIrradiance;
 uniform sampler2D uTextureAO;
 
@@ -34,7 +39,10 @@ void main() {
 
 	// Shading
 	vec3 direct = shadingGGX(N, V, L, uBaseColor, uRoughness, uMetallic) * uLightColor * shadowFactor;
-	direct += iblSpecularGGX(N, V, uBaseColor, uRoughness, uMetallic);
+    
+    vec3 R = reflect(-V, N);
+    R = parallaxCorrectedReflection(R, vWorldPos, uProbePos, uAABBMin, uAABBMax);
+	direct += iblSpecularGGX(N, V, R, uBaseColor, uRoughness, uMetallic);
 
 	vec3 indirect = vec3(0.0);
 	if (uUseIrradianceMap) {

@@ -212,7 +212,7 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	envMapCam.setAspectRatio(size / static_cast<float>(size));
 	envMapCam.setVerticalFieldOfView(90.0f);
 	envMapCam.setPosition(position);
-
+/*
 	auto tex = glow::TextureCubeMap::createStorageImmutable(512, 512, GL_RGBA16F);
 	{
 		auto t = tex->bind();
@@ -221,7 +221,7 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 		t.generateMipmaps();
 	}
 	envMapGGX = tex;
-
+*/
 	for (int faceID = 0; faceID < 6; ++faceID) {
 		envMapFbo->bind().attachColor("fColor", envMap, 0, faceID);
 		envMapCam.setLookAtMatrix(position, position + faceDirVectors[faceID], faceUpVectors[faceID]);
@@ -286,6 +286,12 @@ void RenderPipeline::setBloomPercentage(float value) {
 
 void RenderPipeline::setExposureAdjustment(float value) {
 	exposureAdjustment = value;
+}
+
+void RenderPipeline::setProbe(const glm::vec3& pos, const glm::vec3& halfExtents) {
+    probePos = pos;
+    probeAabbMin = pos - halfExtents;
+    probeAabbMax = pos + halfExtents;
 }
 
 void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const {
@@ -367,6 +373,9 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uBloomPercentage", bloomPercentage);
+        p.setUniform("uProbePos", probePos);
+        p.setUniform("uAABBMin", probeAabbMin);
+        p.setUniform("uAABBMax", probeAabbMax);
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", envMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
@@ -375,8 +384,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 			p.setUniform("uModel", mesh.transform);
 			p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 			p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-			p.setUniform("uMetallic", mesh.material.metallic);
-			p.setUniform("uRoughness", mesh.material.roughness);
+			p.setUniform("uMetallic", 1.0f);//mesh.material.metallic);
+			p.setUniform("uRoughness", 0.0f);//mesh.material.roughness);
 			p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 			p.setTexture("uTextureAO", mesh.material.aoMap);
 

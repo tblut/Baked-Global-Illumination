@@ -1,6 +1,7 @@
 #include "CubeMap.hh"
 #include "third-party/stb_image.h"
 #include <glow/common/log.hh>
+#include <cstring>
 
 glm::vec3 CubeMap::sample(const glm::vec3& dir) const {
     glm::vec3 absDir = glm::abs(dir);

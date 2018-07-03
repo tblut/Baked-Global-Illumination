@@ -2,6 +2,7 @@
 
 #include "Primitive.hh"
 #include "DirectionalLight.hh"
+#include "CubeMap.hh"
 
 #include <embree3/rtcore.h>
 #include <glow/fwd.hh>

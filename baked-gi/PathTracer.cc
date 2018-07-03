@@ -259,6 +259,10 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 	rtcIntersect1(scene, &context, &rayhit);
 
 	if (rayhit.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
+		if (backgroundCubeMap) {
+			return weight * backgroundCubeMap->sample(dir);
+		}
+		
 		return glm::vec3(0.0f);
 	}
 
@@ -385,6 +389,10 @@ float PathTracer::testOcclusionDist(const glm::vec3& origin, const glm::vec3& di
 
 void PathTracer::setLight(const DirectionalLight& light) {
 	this->light = &light;
+}
+
+void PathTracer::setBackgroundCubeMap(const SharedCubeMap& cubemap) {
+	this->backgroundCubeMap = cubemap;
 }
 
 void PathTracer::setMaxPathDepth(unsigned int depth) {

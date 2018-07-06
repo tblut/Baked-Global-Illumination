@@ -1,5 +1,6 @@
 #include "RenderPipeline.hh"
 #include "ColorUtils.hh"
+#include "Scene.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture2D.hh>
@@ -16,8 +17,10 @@
 
 RenderPipeline::RenderPipeline() {
 	std::string workDir = glow::util::pathOf(__FILE__);
-	objectShader = glow::Program::createFromFile(workDir + "/shaders/Object");
-	objectNoTexShader = glow::Program::createFromFile(workDir + "/shaders/ObjectNoTex");
+	objectShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/Object.fsh" });
+	objectTexShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTex.fsh" });
+    objectIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBL.fsh" });
+    objectTexIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBL.fsh" });
 	shadowShader = glow::Program::createFromFile(workDir + "/shaders/Shadow");
 	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/Skybox");
 	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
@@ -83,7 +86,8 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	renderSceneToShadowMap(meshes, lightMatrix);
 	renderSceneToFBO(hdrFbo, cam, lightMatrix);
 
-	if (debugEnvMap) { // Render debug env map
+    // Render debug env map
+	if (debugEnvMap) {
 		GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(enable, GL_CULL_FACE);
 
@@ -97,6 +101,27 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		vaoSphere->bind().draw();
 	}
 
+	// Render debug probe grid
+	if (isDebugProbeGridEnabled) {
+        GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(enable, GL_CULL_FACE);
+
+		auto fbo = hdrFbo->bind();
+		auto p = debugEnvMapShader->use();
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+        
+        for (std::size_t i = 0; i < probeGrid.size(); ++i) {
+            auto probe = probeGrid[i];
+            auto pos = probeGridPositions[i];
+            
+            p.setUniform("uModel", glm::translate(pos) * glm::scale(glm::vec3(0.25f)));
+            p.setTexture("uEnvMap", probe);
+            p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
+            vaoSphere->bind().draw();
+        }
+    }
+	
 	{ // Bloom
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
 		GLOW_SCOPED(disable, GL_CULL_FACE);
@@ -272,6 +297,27 @@ void RenderPipeline::setDebugEnvMapMipLevel(int value) {
 	debugEnvMapMipLevel = value;
 }
 
+void RenderPipeline::makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth) {
+    glm::vec3 min, max;
+    scene.getBoundingBox(min, max);
+    
+    glm::vec3 stepSize = (max - min) / glm::vec3(width, height, depth);
+    
+    for (int z = 0; z <= depth; ++z) {
+        for (int y = 0; y <= height; ++y) {
+            for (int x = 0; x <= width; ++x) {
+                glm::vec3 pos = min + stepSize * glm::vec3(x, y ,z);
+                probeGrid.push_back(renderEnvironmentMap(pos, 256, scene.getMeshes()));
+                probeGridPositions.push_back(pos);
+            }
+        } 
+    }
+}
+
+void RenderPipeline::setDebugReflProbeGridEnabled(bool enabled) {
+    isDebugProbeGridEnabled = enabled;
+}
+
 void RenderPipeline::setUseIrradianceMap(bool use) {
 	useIrradianceMap = use;
 }
@@ -288,10 +334,26 @@ void RenderPipeline::setExposureAdjustment(float value) {
 	exposureAdjustment = value;
 }
 
-void RenderPipeline::setProbe(const glm::vec3& pos, const glm::vec3& halfExtents) {
+void RenderPipeline::setProbes(const glm::vec3& pos, const glm::vec3& halfExtents) {
     probePos = pos;
-    probeAabbMin = pos - halfExtents;
-    probeAabbMax = pos + halfExtents;
+    probeAabbMin = probePos - halfExtents;
+    probeAabbMax = probePos + halfExtents;
+    
+    /*
+    probePos[0] = pos + glm::vec3(-halfExtents.x, -halfExtents.y, halfExtents.z);
+    probePos[1] = pos + glm::vec3(halfExtents.x, -halfExtents.y, halfExtents.z);
+    probePos[2] = pos + glm::vec3(halfExtents.x, halfExtents.y, halfExtents.z);
+    probePos[3] = pos + glm::vec3(-halfExtents.x, halfExtents.y, halfExtents.z);
+    probePos[4] = pos + glm::vec3(-halfExtents.x, -halfExtents.y, -halfExtents.z);
+    probePos[5] = pos + glm::vec3(halfExtents.x, -halfExtents.y, -halfExtents.z);
+    probePos[6] = pos + glm::vec3(halfExtents.x, halfExtents.y, -halfExtents.z);
+    probePos[7] = pos + glm::vec3(-halfExtents.x, halfExtents.y, -halfExtents.z);
+    
+    for (int i = 0; i < 8; ++i) {
+        probeAabbMin[i] = probePos[i] - halfExtents;
+        probeAabbMax[i] = probePos[i] + halfExtents;
+    }
+    */
 }
 
 void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const {
@@ -326,7 +388,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (!texturedMeshes.empty()) { // Render textured objects
-		auto p = objectShader->use();
+		auto p = objectTexIBLShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
 		p.setUniform("uCamPos", cam.getPosition());
@@ -360,7 +422,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 	}
 
 	if (!untexturedMeshes.empty()) { // Render untextured objects
-		auto p = objectNoTexShader->use();
+		auto p = objectIBLShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
 		p.setUniform("uCamPos", cam.getPosition());

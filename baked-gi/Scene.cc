@@ -258,6 +258,8 @@ void Scene::loadFromGltf(const std::string& path) {
 			}
 		}
 	}
+	
+	computeBoundingBox();
 }
 
 void Scene::render(RenderPipeline& pipeline) const {
@@ -403,4 +405,22 @@ const std::vector<Primitive>& Scene::getPrimitives() const {
 
 const std::vector<Mesh>& Scene::getMeshes() const {
 	return meshes;
+}
+
+void Scene::getBoundingBox(glm::vec3& min, glm::vec3& max) const {
+    min = boundingBoxMin;
+    max = boundingBoxMax;
+}
+
+void Scene::computeBoundingBox() {
+    boundingBoxMin = glm::vec3(std::numeric_limits<float>::max());
+    boundingBoxMax = glm::vec3(-std::numeric_limits<float>::max());
+    
+    for (const auto& prim : primitives) {
+        for (const auto& pos : prim.positions) {
+            glm::vec3 worldPos = prim.transform * glm::vec4(pos, 1.0f);
+            boundingBoxMin = glm::min(worldPos, boundingBoxMin);
+            boundingBoxMax = glm::max(worldPos, boundingBoxMax);
+        }
+    }
 }

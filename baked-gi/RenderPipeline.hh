@@ -8,6 +8,8 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <vector>
 
+class Scene;
+
 enum class DebugImageLocation {
 	TopRight,
 	BottomRight
@@ -33,12 +35,16 @@ public:
 	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
 	void setDebugEnvMapMipLevel(int value);
     
+    
+    void makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth);
+    void setDebugReflProbeGridEnabled(bool enabled);
+    
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
 	void setBloomPercentage(float value);
 	void setExposureAdjustment(float value);
     
-    void setProbe(const glm::vec3& pos, const glm::vec3& halfExtents);
+    void setProbes(const glm::vec3& pos, const glm::vec3& halfExtents);
 
 private:
 	void renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const;
@@ -66,7 +72,9 @@ private:
 	glow::SharedFramebuffer shadowFbo;
 
 	glow::SharedProgram objectShader;
-	glow::SharedProgram objectNoTexShader;
+    glow::SharedProgram objectTexShader;
+    glow::SharedProgram objectIBLShader;
+    glow::SharedProgram objectTexIBLShader;
 	glow::SharedProgram shadowShader;
 	glow::SharedProgram skyboxShader;
 	glow::SharedProgram downsampleShader;
@@ -100,7 +108,11 @@ private:
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
     
-    glm::vec3 probePos;
-    glm::vec3 probeAabbMin = glm::vec3(-5.0f);
-    glm::vec3 probeAabbMax = glm::vec3(5.0f);
+    bool isDebugProbeGridEnabled = false;
+    std::vector<glow::SharedTextureCubeMap> probeGrid;
+    std::vector<glm::vec3> probeGridPositions;
+    
+    glm::vec3 probePos; // flb, frb, frt, flt, blb, brb, brt, blt
+    glm::vec3 probeAabbMin;
+    glm::vec3 probeAabbMax;
 };

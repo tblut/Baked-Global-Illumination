@@ -25,10 +25,15 @@ public:
 	const DirectionalLight& getSun() const;
 	const std::vector<Primitive>& getPrimitives() const;
 	const std::vector<Mesh>& getMeshes() const;
-	
+	void getBoundingBox(glm::vec3& min, glm::vec3& max) const;
+    
 private:
+    void computeBoundingBox();
+    
 	// Common
 	DirectionalLight sun;
+    glm::vec3 boundingBoxMin;
+    glm::vec3 boundingBoxMax;
 
 	// Offline rendering
 	std::vector<SharedImage> images;

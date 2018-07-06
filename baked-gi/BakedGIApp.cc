@@ -42,7 +42,7 @@ namespace {
 		auto envMap = probeData.pipeline->renderEnvironmentMap(envMapPos, 256, probeData.scene->getMeshes());
 		//envMap->bind().generateMipmaps();
 		//probeData.pipeline->setDebugEnvMap(envMap, envMapPos);
-        probeData.pipeline->setProbe(envMapPos, glm::vec3(10));
+        probeData.pipeline->setProbes(envMapPos, glm::vec3(10));
 	}
 }
 
@@ -80,6 +80,9 @@ void BakedGIApp::init() {
 		pbt + "/posz.jpg",
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
+    
+    pipeline->makeDebugReflProbeGrid(scene, 4, 2, 4);
+    pipeline->setDebugReflProbeGridEnabled(true);
 
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");

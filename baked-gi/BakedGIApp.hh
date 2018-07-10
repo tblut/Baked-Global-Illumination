@@ -43,4 +43,5 @@ private:
 	float bloomPercentage = 0.02f;
 	float exposureAdjustment = 1.0f;
 	int debugEnvMapMipLevel = 0;
+	bool showDebugEnvProbes = true;
 };

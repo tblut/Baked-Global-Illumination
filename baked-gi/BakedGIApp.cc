@@ -81,7 +81,7 @@ void BakedGIApp::init() {
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
-    pipeline->makeDebugReflProbeGrid(scene, 4, 2, 4);
+    pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
     pipeline->setDebugReflProbeGridEnabled(true);
 
 	
@@ -107,6 +107,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
 	TwAddButton(tweakbar(), "Make Debuge Probe", makeDebugProbe, nullptr, "group=probes");
 	TwAddVarRW(tweakbar(), "Probe Mip Level", TW_TYPE_INT32, &debugEnvMapMipLevel, "group=probes min=0");
+	TwAddVarRW(tweakbar(), "Show Env Probes", TW_TYPE_BOOLCPP, &showDebugEnvProbes, "group=probes");
 
 	// For setting debug probes
 	probeData.camera = getCamera();
@@ -137,6 +138,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setBloomPercentage(bloomPercentage);
 	pipeline->setExposureAdjustment(exposureAdjustment);
 	pipeline->setDebugEnvMapMipLevel(debugEnvMapMipLevel);
+	pipeline->setDebugReflProbeGridEnabled(showDebugEnvProbes);
 	scene.render(*pipeline);
 }
 

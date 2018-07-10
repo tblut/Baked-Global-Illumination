@@ -72,9 +72,9 @@ RenderPipeline::RenderPipeline() {
 		t.setMagFilter(GL_LINEAR);
 		t.generateMipmaps();
 	}
-	envMapGGX = tex;
+	defaultEnvMapGGX = tex;
 
-	this->envMapGGX = computeEnvMapGGX(skybox, 512);
+	this->defaultEnvMapGGX = computeEnvMapGGX(skybox, 512);
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
@@ -111,12 +111,9 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
         
-        for (std::size_t i = 0; i < probeGrid.size(); ++i) {
-            auto probe = probeGrid[i];
-            auto pos = probeGridPositions[i];
-            
-            p.setUniform("uModel", glm::translate(pos) * glm::scale(glm::vec3(0.25f)));
-            p.setTexture("uEnvMap", probe);
+        for (const auto& probe : reflectionProbes) {
+            p.setUniform("uModel", glm::translate(probe.position) * glm::scale(glm::vec3(0.25f)));
+            p.setTexture("uEnvMap", probe.ggxEnvMap);
             p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
             vaoSphere->bind().draw();
         }
@@ -254,9 +251,13 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	}
 
 	
-	this->envMapGGX = computeEnvMapGGX(envMap, size);
+	this->defaultEnvMapGGX = computeEnvMapGGX(envMap, size);
 
-	return envMapGGX;
+	return defaultEnvMapGGX;
+}
+
+void RenderPipeline::setReflectionProbes(const std::vector<ReflectionProbe>& probes) {
+    reflectionProbes = probes;
 }
 
 void RenderPipeline::setAmbientColor(const glm::vec3& color) {
@@ -300,8 +301,14 @@ void RenderPipeline::setDebugEnvMapMipLevel(int value) {
 void RenderPipeline::makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth) {
     glm::vec3 min, max;
     scene.getBoundingBox(min, max);
-    
+  
+    min.y += 1.0f;
+    max.y += 1.0f;
     glm::vec3 stepSize = (max - min) / glm::vec3(width, height, depth);
+    
+    min += stepSize * 0.2f;
+    max -= stepSize * 0.2f;
+    stepSize = (max - min) / glm::vec3(width, height, depth);
     
     for (int z = 0; z <= depth; ++z) {
         for (int y = 0; y <= height; ++y) {
@@ -402,7 +409,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setTexture("uTextureShadow", shadowBuffer);
-		p.setTexture("uEnvMapGGX", envMapGGX);
+		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 
 		for (const auto& mesh : texturedMeshes) {
@@ -439,7 +446,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
         p.setUniform("uAABBMin", probeAabbMin);
         p.setUniform("uAABBMax", probeAabbMax);
 		p.setTexture("uTextureShadow", shadowBuffer);
-		p.setTexture("uEnvMapGGX", envMapGGX);
+		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 
 		for (const auto& mesh : untexturedMeshes) {

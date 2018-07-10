@@ -2,6 +2,7 @@
 
 #include "Mesh.hh"
 #include "DirectionalLight.hh"
+#include "ReflectionProbe.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -24,6 +25,7 @@ public:
 
 	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
 
+    void setReflectionProbes(const std::vector<ReflectionProbe>& probes);
 	void setAmbientColor(const glm::vec3& color);
 	void attachCamera(const glow::camera::GenericCamera& camera);
 	void attachLight(const DirectionalLight& light);
@@ -94,7 +96,7 @@ private:
 	glow::SharedTextureCubeMap debugEnvMap;
 	glow::SharedTextureCubeMap skybox;
 	glow::SharedTexture2D envLutGGX;
-	glow::SharedTextureCubeMap envMapGGX;
+	glow::SharedTextureCubeMap defaultEnvMapGGX;
 
 	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.0f);
@@ -108,6 +110,7 @@ private:
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
     
+    std::vector<ReflectionProbe> reflectionProbes;
     bool isDebugProbeGridEnabled = false;
     std::vector<glow::SharedTextureCubeMap> probeGrid;
     std::vector<glm::vec3> probeGridPositions;

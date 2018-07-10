@@ -53,6 +53,10 @@ BakedGIApp::BakedGIApp(const std::string& gltfPath, const std::string& lmPath) {
 
 void BakedGIApp::init() {
 	glow::glfw::GlfwApp::init();
+    
+    GLint numLayers;
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &numLayers);
+    glow::info() << "Max array texture layers: " << numLayers;
 
 	this->setQueryStats(false);
 
@@ -81,8 +85,12 @@ void BakedGIApp::init() {
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
-    pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
-    pipeline->setDebugReflProbeGridEnabled(true);
+    //pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
+    //pipeline->setDebugReflProbeGridEnabled(true);
+    
+    reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
+    reflProbeBaker->bake(scene, {4,4,4});
+    pipeline->setReflectionProbes(reflProbeBaker->getReflectionProbes());
 
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
@@ -91,7 +99,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Size", TW_TYPE_UINT32, &shadowMapSize, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Offset", TW_TYPE_FLOAT, &shadowMapOffset, "group=light step=0.0001");
-	TwAddVarRW(tweakbar(), "Bloom %", TW_TYPE_FLOAT, &bloomPercentage, "group=postprocess min=0.0 step=0.01");
+	TwAddVarRW(tweakbar(), "Bloom %", TW_TYPE_FLOAT, &bloomPercentage, "group=postprocess min=0.0 max =1.0 step=0.01");
 	TwAddVarRW(tweakbar(), "Exposure", TW_TYPE_FLOAT, &exposureAdjustment, "group=postprocess min=0.0 step=0.1");
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, debugPathTracer.get(), "group=pathtrace");
 	TwAddButton(tweakbar(), "Save Trace", saveTrace, debugPathTracer.get(), "group=pathtrace");
@@ -105,7 +113,7 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Lightmap Index", TW_TYPE_INT32, &lightMapIndex, "group=lightmap min=0 step=1");
 	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
-	TwAddButton(tweakbar(), "Make Debuge Probe", makeDebugProbe, nullptr, "group=probes");
+	TwAddButton(tweakbar(), "Make Debug Probe", makeDebugProbe, nullptr, "group=probes");
 	TwAddVarRW(tweakbar(), "Probe Mip Level", TW_TYPE_INT32, &debugEnvMapMipLevel, "group=probes min=0");
 	TwAddVarRW(tweakbar(), "Show Env Probes", TW_TYPE_BOOLCPP, &showDebugEnvProbes, "group=probes");
 

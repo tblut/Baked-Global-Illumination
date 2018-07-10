@@ -387,7 +387,7 @@ float PathTracer::testOcclusionDist(const glm::vec3& origin, const glm::vec3& di
 	return -std::numeric_limits<float>::infinity();
 }
 
-bool PathTracer::getIntersectionPoint(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& intersection) const {
+bool PathTracer::testIntersection(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& intersection) const {
     RTCRayHit rayhit = { Ray(origin, dir, 0.001f, std::numeric_limits<float>::infinity()), Hit() };
 	RTCIntersectContext context;
 	rtcInitIntersectContext(&context);

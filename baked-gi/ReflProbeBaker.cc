@@ -104,6 +104,8 @@ void ReflProbeBaker::bake(const Scene& scene, glm::ivec3 gridDim, int envMapRes)
         for (int y = 0; y <= gridDim.y; ++y) {
             for (int x = 0; x <= gridDim.x; ++x) {
                 
+                std::vector<int> probeViewCount(probes.size(), 0);
+                
                 int numSamples = 512;
                 for (int sample = 0; sample < numSamples; ++sample) {
                     glm::vec3 voxelPos = min + voxelSize * glm::vec3(x, y, z);
@@ -111,7 +113,17 @@ void ReflProbeBaker::bake(const Scene& scene, glm::ivec3 gridDim, int envMapRes)
                     glm::vec3 voxelMax = voxelPos + voxelSize * 0.5f;
                     glm::vec3 origin = sampleBoxUniform(voxelMin, voxelMax);
                     glm::vec3 dir = sampleSphereUniform(origin, 1.0f);
-                    //pathTracer->testOcclusionDist(origin, dir); // TODO: Compute intersection point, not just occlusion
+                    
+                    glm::vec3 intersection;
+                    if (pathTracer->testIntersection(origin, dir, intersection)) {
+                        for (std::size_t i = 0; i < probes.size(); ++i) {
+                            glm::vec3 toProbe = glm::normalize(probes[i].position - intersection);
+                            if (pathTracer->testOcclusionDist(intersection, toProbe) < 0) {
+                                probeViewCount[i]++;
+                            }
+                        }
+                    }
+                    
                 }
             }
         } 

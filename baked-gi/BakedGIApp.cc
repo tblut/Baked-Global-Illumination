@@ -92,7 +92,7 @@ void BakedGIApp::init() {
     //pipeline->setDebugReflProbeGridEnabled(true);
     
     pipeline->setReflectionProbes(reflProbeBaker->getReflectionProbes());
-	pipeline->renderReflectionProbes(reflProbeBaker->getReflectionProbes(), 64, scene.getMeshes());
+	pipeline->renderReflectionProbes(reflProbeBaker->getReflectionProbes(), 128, scene.getMeshes());
 
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");

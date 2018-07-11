@@ -321,6 +321,8 @@ std::string glUniformTypeToString(GLenum type)
         return "sampler3D";
     case GL_SAMPLER_CUBE:
         return "samplerCube";
+    case GL_SAMPLER_CUBE_MAP_ARRAY:
+        return "samplerCubeArray";
     case GL_SAMPLER_1D_SHADOW:
         return "sampler1DShadow";
     case GL_SAMPLER_2D_SHADOW:

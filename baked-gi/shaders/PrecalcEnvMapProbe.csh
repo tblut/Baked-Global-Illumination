@@ -2,7 +2,7 @@
 
 uniform float uRoughness;
 uniform samplerCubeArray uEnvMapArray;
-uniform uint uLayer;
+uniform float uLayer;
 
 // See: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 vec3 PrefilterEnvMap(float Roughness, vec3 R)
@@ -24,7 +24,7 @@ vec3 PrefilterEnvMap(float Roughness, vec3 R)
 		float dotNL = max(0.0, dot(N, L));
 		if (dotNL > 0)
 		{
-			color += textureLod(uEnvMapArray, vec4(L, float(uLayer)), 0).rgb * dotNL;
+			color += textureLod(uEnvMapArray, vec4(L, uLayer), 0).rgb * dotNL;
 			totalWeight += dotNL;
 		}
 	}
@@ -74,5 +74,6 @@ void main()
 
 	vec3 color = PrefilterEnvMap(uRoughness, dir);
 
-	imageStore(uCubeArray, ivec3(x, y, l), vec4(color, 0));
+	uint layer = l + uint(uLayer) * 6;
+	imageStore(uCubeArray, ivec3(x, y, layer), vec4(color, 0));
 }

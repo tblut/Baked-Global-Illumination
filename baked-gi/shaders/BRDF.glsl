@@ -2,7 +2,7 @@
 
 uniform samplerCube uEnvMapGGX;
 uniform sampler2D uEnvLutGGX;
-//uniform samplerCubeArray uReflectionProbeArray;
+uniform samplerCubeArray uReflectionProbeArray;
 
 // DO NOT MULTIPLY BY COS THETA
 vec3 shadingSpecularGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0) {
@@ -56,8 +56,8 @@ vec3 iblSpecularGGX(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float m
 
     return envcolor * (specularColor * envbrdf.x + envbrdf.y);
 }
-/*
-vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float metallic, uvec4 probeIndices) {
+
+vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float metallic, vec4 probeIndices) {
     float dotNV = max(dot(N, V), 0.0);
     //vec3 R = reflect(-V, N);//2 * dot(N, V) * N - V;
 
@@ -65,13 +65,13 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 
     float maxLevel = floor(log2(float(textureSize(uEnvMapGGX, 0).x)));
     vec2 envbrdf = textureLod(uEnvLutGGX, vec2(roughness, dotNV), 0).xy;
+	
+    vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R, probeIndices.x), roughness * maxLevel).rgb;
+	vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R, probeIndices.y), roughness * maxLevel).rgb;
+	vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R, probeIndices.z), roughness * maxLevel).rgb;
+	vec3 envcolor3 = textureLod(uReflectionProbeArray, vec4(R, probeIndices.w), roughness * maxLevel).rgb;
 
-    vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R, float(probeIndices.x)), roughness * maxLevel).rgb;
-	vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R, float(probeIndices.y)), roughness * maxLevel).rgb;
-	vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R, float(probeIndices.z)), roughness * maxLevel).rgb;
-	vec3 envcolor3 = textureLod(uReflectionProbeArray, vec4(R, float(probeIndices.w)), roughness * maxLevel).rgb;
-
-	vec3 envcolor = (envcolor0 + envcolor1 + envcolor2 + envcolor3) / 4.0;
+	vec3 envcolor = envcolor0;//(envcolor0 + envcolor1 + envcolor2 + envcolor3) / 4.0;
 
     return envcolor * (specularColor * envbrdf.x + envbrdf.y);
-}*/
+}

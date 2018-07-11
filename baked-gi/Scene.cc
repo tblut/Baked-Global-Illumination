@@ -347,9 +347,16 @@ void Scene::buildRealtimeObjects(const std::string& lightMapPath, const std::vec
 		}
 		
 		if (!primitive.reflectionProbeIndices.empty()) {
+			std::vector<glm::vec4> probeIndices;
+			probeIndices.reserve(primitive.reflectionProbeIndices.size());
+			for (auto index : primitive.reflectionProbeIndices) {
+				//probeIndices.push_back(static_cast<glm::vec4>(index));
+				probeIndices.push_back(glm::vec4(0.0f));
+			}
+
 			auto ab = glow::ArrayBuffer::create();
 			ab->defineAttribute<glm::uvec4>("aReflectionProbeIndices");
-			ab->bind().setData(primitive.reflectionProbeIndices);
+			ab->bind().setData(probeIndices);
 			abs.push_back(ab);
 		}
 

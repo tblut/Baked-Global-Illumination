@@ -101,17 +101,17 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 	if (isDebugProbeGridEnabled) {
         GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(enable, GL_CULL_FACE);
-
+		
 		auto fbo = hdrFbo->bind();
 		auto p = debugReflProbeShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
         
         for (const auto& probe : reflectionProbes) {
-            p.setUniform("uModel", glm::translate(probe.position) * glm::scale(glm::vec3(0.25f)));
+			p.setUniform("uModel", glm::translate(probe.position) * glm::scale(glm::vec3(0.25f)));
             p.setTexture("uEnvMapArray", reflectionProbeArray);
             p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
-			p.setUniform("uLayer", probe.layer);
+			p.setUniform("uLayer", static_cast<float>(probe.layer));
             vaoSphere->bind().draw();
         }
     }
@@ -247,7 +247,19 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 }
 
 void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, const std::vector<Mesh>& meshes) {
-	auto targetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()), GL_RGBA16F);
+	auto targetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
+	{
+		auto tex = targetArray->bind();
+		tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		tex.setMagFilter(GL_LINEAR);
+	}
+
+	auto ggxTargetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
+	{
+		auto tex = ggxTargetArray->bind();
+		tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		tex.setMagFilter(GL_LINEAR);
+	}
 
 	for (const auto& probe : probes) {
 		auto lightMatrix = makeLightMatrix(probe.position);
@@ -301,10 +313,10 @@ void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& 
 			renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
 		}
 
-		computeEnvMapGGXProbe(probe.layer, size, reflectionProbeArray, targetArray);
+		computeEnvMapGGXProbe(probe.layer, size, targetArray, ggxTargetArray);
 	}
 
-	reflectionProbeArray = targetArray;
+	reflectionProbeArray = ggxTargetArray;
 }
 
 void RenderPipeline::setReflectionProbes(const std::vector<ReflectionProbe>& probes) {
@@ -462,6 +474,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
+		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
 
 		for (const auto& mesh : texturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -499,6 +512,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
+		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
 
 		for (const auto& mesh : untexturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -602,18 +616,18 @@ void RenderPipeline::computeEnvMapGGXProbe(int layer, int size, const glow::Shar
 	{
 		auto p = precalcEnvMapProbeShader->use();
 		p.setTexture("uEnvMapArray", sourceArray);
-		p.setUniform("uLayer", layer);
+		p.setUniform("uLayer", static_cast<float>(layer));
 		int miplevel = 0;
 		int maxLevel = static_cast<int>(glm::floor(glm::log2(static_cast<float>(size))));
 		for (int tsize = size; tsize > 0; tsize /= 2) {
 			auto roughness = miplevel / (float) maxLevel;
 			p.setUniform("uRoughness", roughness);
-			p.setImage(0, targetArray, GL_WRITE_ONLY, miplevel, layer);
+			p.setImage(0, targetArray, GL_WRITE_ONLY, miplevel, 0);
 			p.compute((tsize - 1) / localSize + 1, (tsize - 1) / localSize + 1, 6);
 			++miplevel;
 		}
 	}
-
+	
 	targetArray->setMipmapsGenerated(true);
 }
 

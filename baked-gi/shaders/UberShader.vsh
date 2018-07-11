@@ -5,7 +5,7 @@ in vec4 aTangent;
 in vec2 aTexCoord;
 #endif
 in vec2 aLightMapTexCoord;
-//in uvec4 aReflectionProbeIndices;
+in vec4 aReflectionProbeIndices;
 
 out vec3 vWorldPos;
 out vec3 vNormal;
@@ -15,7 +15,7 @@ out vec2 vTexCoord;
 #endif
 out vec2 vLightMapTexCoord;
 out vec4 vLightSpacePos;
-//out uvec4 vReflectionProbeIndices;
+out vec4 vReflectionProbeIndices;
 
 uniform mat4 uView;
 uniform mat4 uProj;
@@ -32,6 +32,6 @@ void main() {
 #endif
 	vLightMapTexCoord = aLightMapTexCoord;
 	vLightSpacePos = uLightMatrix * uModel * vec4(aPosition, 1.0);
-	//vReflectionProbeIndices = aReflectionProbeIndices;
+	vReflectionProbeIndices = aReflectionProbeIndices;
 	gl_Position = uProj * uView * uModel * vec4(aPosition, 1.0);
 }

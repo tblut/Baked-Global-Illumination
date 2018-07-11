@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include <functional>
 
 class RenderPipeline;
 class PathTracer;
@@ -16,7 +17,6 @@ public:
     
     void generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridDim);
     std::vector<std::vector<glm::uvec4>> computePrimitiveProbeIndices(const Scene& scene);
-    const std::vector<ReflectionProbe>& bakeGGXEnvProbes(const Scene& scene, int envMapRes);
     std::vector<ReflectionProbe>& getReflectionProbes();
     
 private:
@@ -40,4 +40,5 @@ private:
     glm::vec3 voxelSize;
     std::vector<VoxelType> voxelTypes;
     std::vector<ReflectionProbe> probes;
+	glow::SharedTextureCubeMapArray envMapArray;
 };

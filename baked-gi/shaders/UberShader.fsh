@@ -10,6 +10,7 @@ in vec2 vTexCoord;
 #endif
 in vec2 vLightMapTexCoord;
 in vec4 vLightSpacePos;
+//in uvec4 vReflectionProbeIndices;
 
 out vec3 fColor;
 out vec3 fBrightColor;

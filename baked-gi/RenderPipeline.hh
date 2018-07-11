@@ -24,6 +24,7 @@ public:
 	void resizeBuffers(int w, int h);
 
 	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
+	void renderReflectionProbes(const std::vector<ReflectionProbe>& probes,int size, const std::vector<Mesh>& meshes);
 
     void setReflectionProbes(const std::vector<ReflectionProbe>& probes);
 	void setAmbientColor(const glm::vec3& color);
@@ -36,7 +37,6 @@ public:
 	void setDebugTexture(const glow::SharedTexture2D& texture, DebugImageLocation location);
 	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
 	void setDebugEnvMapMipLevel(int value);
-    
     
     void makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth);
     void setDebugReflProbeGridEnabled(bool enabled);
@@ -57,6 +57,10 @@ private:
 	glm::mat4 makeLightMatrix(const glm::vec3& camPos) const;
 	glow::SharedTexture2D computeEnvLutGGX(int width, int height) const;
 	glow::SharedTextureCubeMap computeEnvMapGGX(const glow::SharedTextureCubeMap& envMap, int size) const;
+	void computeEnvMapGGXProbe(int layer, int size, const glow::SharedTextureCubeMapArray& sourceArray,
+		const glow::SharedTextureCubeMapArray& targetArray) const;
+	glow::SharedTextureCubeMap makeBlackCubeMap(int size) const;
+	glow::SharedTextureCubeMapArray makeDefaultReflectionProbes(int size) const;
 
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -84,8 +88,10 @@ private:
 	glow::SharedProgram postProcessShader;
 	glow::SharedProgram debugImageShader;
 	glow::SharedProgram debugEnvMapShader;
+	glow::SharedProgram debugReflProbeShader;
 	glow::SharedProgram precalcEnvBrdfLutShader;
 	glow::SharedProgram precalcEnvMapShader;
+	glow::SharedProgram precalcEnvMapProbeShader;
 
 	glow::SharedVertexArray vaoQuad;
 	glow::SharedVertexArray vaoCube;
@@ -97,6 +103,7 @@ private:
 	glow::SharedTextureCubeMap skybox;
 	glow::SharedTexture2D envLutGGX;
 	glow::SharedTextureCubeMap defaultEnvMapGGX;
+	glow::SharedTextureCubeMapArray reflectionProbeArray;
 
 	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.0f);

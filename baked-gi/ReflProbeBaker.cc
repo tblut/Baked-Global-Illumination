@@ -7,6 +7,7 @@
 #include <limits>
 #include <random>
 #include <algorithm>
+#include <numeric>
 
 /*
  Algorithm for placing probes in the scene and assigning probes to vertices:
@@ -71,6 +72,7 @@ void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridD
     });
     
     // Generate env maps for empty and surface voxels
+	int layer = 0;
     forEachVoxel([&](int x, int y, int z) {
         int voxelIndex = getVoxelIndex({x, y, z});
         if (voxelTypes[voxelIndex] != VoxelType::Full) {
@@ -78,8 +80,10 @@ void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridD
             probe.position = getVoxelCenterWS({x, y, z});
             probe.aabbMin = probe.position - voxelSize * 0.5f; // TODO: Compute correct bounds
             probe.aabbMax = probe.position + voxelSize * 0.5f; // TODO: Compute correct bounds
+			probe.layer = layer;
             //probe.ggxEnvMap = pipeline->renderEnvironmentMap(probe.position, envMapRes, scene.getMeshes());
             probes.push_back(probe);
+			layer++;
         }
     });
 }
@@ -112,12 +116,6 @@ std::vector<std::vector<glm::uvec4>> ReflProbeBaker::computePrimitiveProbeIndice
     }
     
     return primitiveProbeIndices;
-}
-
-const std::vector<ReflectionProbe>& ReflProbeBaker::bakeGGXEnvProbes(const Scene& scene, int envMapRes) {
-    for (auto& probe : probes) {
-        probe.ggxEnvMap = pipeline->renderEnvironmentMap(probe.position, envMapRes, scene.getMeshes());
-    }
 }
 
 std::vector<ReflectionProbe>& ReflProbeBaker::getReflectionProbes() {

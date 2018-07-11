@@ -6,6 +6,7 @@
 #include <glow/objects/Texture2D.hh>
 #include <glow/objects/TextureRectangle.hh>
 #include <glow/objects/TextureCubeMap.hh>
+#include <glow/objects/TextureCubeMapArray.hh>
 #include <glow/objects/Framebuffer.hh>
 #include <glow/data/TextureData.hh>
 #include <glow/common/str_utils.hh>
@@ -14,6 +15,7 @@
 #include <glow-extras/geometry/Quad.hh>
 #include <glow-extras/geometry/Cube.hh>
 #include <glow-extras/camera/GenericCamera.hh>
+#include <glm/gtc/packing.hpp>
 
 RenderPipeline::RenderPipeline() {
 	std::string workDir = glow::util::pathOf(__FILE__);
@@ -28,8 +30,10 @@ RenderPipeline::RenderPipeline() {
 	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
 	debugImageShader = glow::Program::createFromFile(workDir + "/shaders/DebugImage");
 	debugEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/DebugEnvMap");
+	debugReflProbeShader = glow::Program::createFromFiles({ workDir + "/shaders/DebugEnvMap.vsh", workDir + "/shaders/DebugReflProbes.fsh" });
 	precalcEnvBrdfLutShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvBrdfLut.csh");
 	precalcEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMap.csh");
+	precalcEnvMapProbeShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMapProbe.csh");
 
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
@@ -63,18 +67,10 @@ RenderPipeline::RenderPipeline() {
 		pbt + "/negz.jpg",
 		glow::ColorSpace::sRGB));
 
-	envLutGGX = computeEnvLutGGX(64, 64);
-
-	auto tex = glow::TextureCubeMap::createStorageImmutable(512, 512, GL_RGBA16F);
-	{
-		auto t = tex->bind();
-		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
-		t.setMagFilter(GL_LINEAR);
-		t.generateMipmaps();
-	}
-	defaultEnvMapGGX = tex;
-
-	this->defaultEnvMapGGX = computeEnvMapGGX(skybox, 512);
+	this->envLutGGX = computeEnvLutGGX(64, 64);
+	this->defaultEnvMapGGX = makeBlackCubeMap(2); // Black first
+	this->defaultEnvMapGGX = computeEnvMapGGX(skybox, 256); // Then render the skybox
+	this->reflectionProbeArray = makeDefaultReflectionProbes(2);
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
@@ -107,14 +103,15 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		GLOW_SCOPED(enable, GL_CULL_FACE);
 
 		auto fbo = hdrFbo->bind();
-		auto p = debugEnvMapShader->use();
+		auto p = debugReflProbeShader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
         
         for (const auto& probe : reflectionProbes) {
             p.setUniform("uModel", glm::translate(probe.position) * glm::scale(glm::vec3(0.25f)));
-            p.setTexture("uEnvMap", probe.ggxEnvMap);
+            p.setTexture("uEnvMapArray", reflectionProbeArray);
             p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
+			p.setUniform("uLayer", probe.layer);
             vaoSphere->bind().draw();
         }
     }
@@ -234,16 +231,9 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	envMapCam.setAspectRatio(size / static_cast<float>(size));
 	envMapCam.setVerticalFieldOfView(90.0f);
 	envMapCam.setPosition(position);
-/*
-	auto tex = glow::TextureCubeMap::createStorageImmutable(512, 512, GL_RGBA16F);
-	{
-		auto t = tex->bind();
-		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
-		t.setMagFilter(GL_LINEAR);
-		t.generateMipmaps();
-	}
-	envMapGGX = tex;
-*/
+
+	defaultEnvMapGGX = makeBlackCubeMap(2);
+
 	for (int faceID = 0; faceID < 6; ++faceID) {
 		envMapFbo->bind().attachColor("fColor", envMap, 0, faceID);
 		envMapCam.setLookAtMatrix(position, position + faceDirVectors[faceID], faceUpVectors[faceID]);
@@ -254,6 +244,67 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	this->defaultEnvMapGGX = computeEnvMapGGX(envMap, size);
 
 	return defaultEnvMapGGX;
+}
+
+void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, const std::vector<Mesh>& meshes) {
+	auto targetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()), GL_RGBA16F);
+
+	for (const auto& probe : probes) {
+		auto lightMatrix = makeLightMatrix(probe.position);
+		renderSceneToShadowMap(meshes, lightMatrix);
+
+		fillRenderQueues(meshes);
+
+		auto envDepth = glow::Texture2D::createStorageImmutable(size, size, GL_DEPTH_COMPONENT32);
+		auto envMapFbo = glow::Framebuffer::createDepthOnly(envDepth);
+		
+		GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(enable, GL_CULL_FACE);
+		GLOW_SCOPED(clearColor, 0, 0, 0, 0);
+
+		/*
+		GL_TEXTURE_CUBE_MAP_POSITIVE_X
+		GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+		GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+		GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+		GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+		GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+		*/
+		const glm::vec3 faceDirVectors[] = {
+			glm::vec3(1.0f, 0.0f, 0.0f),
+			glm::vec3(-1.0f, 0.0f, 0.0f),
+			glm::vec3(0.0f, 1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 1.0f),
+			glm::vec3(0.0f, 0.0f, -1.0f)
+		};
+
+		const glm::vec3 faceUpVectors[] = {
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 1.0f),
+			glm::vec3(0.0f, 0.0f, -1.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f)
+		};
+
+		glow::camera::GenericCamera envMapCam;
+		envMapCam.setViewportSize(size, size);
+		envMapCam.setAspectRatio(size / static_cast<float>(size));
+		envMapCam.setVerticalFieldOfView(90.0f);
+		envMapCam.setPosition(probe.position);
+
+		for (int faceID = 0; faceID < 6; ++faceID) {
+			int layer = probe.layer * 6 + faceID;
+			envMapFbo->bind().attachColor("fColor", targetArray, 0, layer);
+			envMapCam.setLookAtMatrix(probe.position, probe.position + faceDirVectors[faceID], faceUpVectors[faceID]);
+			renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
+		}
+
+		computeEnvMapGGXProbe(probe.layer, size, reflectionProbeArray, targetArray);
+	}
+
+	reflectionProbeArray = targetArray;
 }
 
 void RenderPipeline::setReflectionProbes(const std::vector<ReflectionProbe>& probes) {
@@ -543,4 +594,65 @@ glow::SharedTextureCubeMap RenderPipeline::computeEnvMapGGX(const glow::SharedTe
 
 	tex->setMipmapsGenerated(true);
 	return tex;
+}
+
+void RenderPipeline::computeEnvMapGGXProbe(int layer, int size, const glow::SharedTextureCubeMapArray& sourceArray,
+		const glow::SharedTextureCubeMapArray& targetArray) const {
+	const int localSize = 4;
+	{
+		auto p = precalcEnvMapProbeShader->use();
+		p.setTexture("uEnvMapArray", sourceArray);
+		p.setUniform("uLayer", layer);
+		int miplevel = 0;
+		int maxLevel = static_cast<int>(glm::floor(glm::log2(static_cast<float>(size))));
+		for (int tsize = size; tsize > 0; tsize /= 2) {
+			auto roughness = miplevel / (float) maxLevel;
+			p.setUniform("uRoughness", roughness);
+			p.setImage(0, targetArray, GL_WRITE_ONLY, miplevel, layer);
+			p.compute((tsize - 1) / localSize + 1, (tsize - 1) / localSize + 1, 6);
+			++miplevel;
+		}
+	}
+
+	targetArray->setMipmapsGenerated(true);
+}
+
+glow::SharedTextureCubeMap RenderPipeline::makeBlackCubeMap(int size) const {
+	auto tex = glow::TextureCubeMap::createStorageImmutable(size, size, GL_RGBA16F);
+	std::vector<glm::uint64> data(size * size, glm::packHalf4x16(glm::vec4(0.0f)));
+	{
+		auto t = tex->bind();
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_X, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, size, size, GL_RGBA, GL_HALF_FLOAT, data.data());
+		t.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		t.setMagFilter(GL_LINEAR);
+		t.generateMipmaps();
+	}
+	return tex;
+}
+
+glow::SharedTextureCubeMapArray RenderPipeline::makeDefaultReflectionProbes(int size) const {
+	GLint maxLayers;
+	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxLayers);
+	auto envMapArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, maxLayers, GL_RGBA16F);
+
+	std::vector<glm::uint64> data(maxLayers * size * size, glm::packHalf4x16(glm::vec4(0.0f)));
+	{
+		auto tex = envMapArray->bind();
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_X, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setData(GL_RGBA16F, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, size, size, maxLayers, GL_RGBA, GL_HALF_FLOAT, data.data());
+		tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+		tex.setMagFilter(GL_LINEAR);
+		tex.generateMipmaps();
+	}
+
+	return envMapArray;
 }

@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <fstream>
+#include <cassert>
 
 namespace {
 	glm::mat4 getTransformForNode(const tinygltf::Node& node) {
@@ -267,6 +268,14 @@ void Scene::render(RenderPipeline& pipeline) const {
 }
 
 void Scene::buildRealtimeObjects(const std::string& lightMapPath) {
+    buildRealtimeObjects(lightMapPath, std::vector<std::vector<glm::uvec4>>());
+}
+
+void Scene::buildRealtimeObjects(const std::vector<std::vector<glm::uvec4>>& primitiveProbeIndices)  {
+    buildRealtimeObjects("", primitiveProbeIndices);
+}
+
+void Scene::buildRealtimeObjects(const std::string& lightMapPath, const std::vector<std::vector<glm::uvec4>>& primitiveProbeIndices) {
 	auto defaultIrradianceMap = createNullIrradianceMap()->createTexture();
 	auto defaultAoMap = createNullAoMap()->createTexture();
 	std::vector<glow::SharedTexture2D> irradianceMaps;
@@ -290,7 +299,11 @@ void Scene::buildRealtimeObjects(const std::string& lightMapPath) {
 	textures.resize(images.size());
 
 	for (std::size_t i = 0; i < primitives.size(); ++i) {
-		const auto& primitive = primitives[i];
+		auto& primitive = primitives[i];
+        if (!primitiveProbeIndices.empty()) {
+            assert(primitiveProbeIndices.size() == primitives.size());
+            primitive.reflectionProbeIndices = primitiveProbeIndices[i];
+        }
 
 		Mesh mesh;
 		mesh.transform = primitive.transform;
@@ -330,6 +343,13 @@ void Scene::buildRealtimeObjects(const std::string& lightMapPath) {
 			auto ab = glow::ArrayBuffer::create();
 			ab->defineAttribute<glm::vec2>("aLightMapTexCoord");
 			ab->bind().setData(primitive.lightMapTexCoords);
+			abs.push_back(ab);
+		}
+		
+		if (!primitive.reflectionProbeIndices.empty()) {
+			auto ab = glow::ArrayBuffer::create();
+			ab->defineAttribute<glm::uvec4>("aReflectionProbeIndices");
+			ab->bind().setData(primitive.reflectionProbeIndices);
 			abs.push_back(ab);
 		}
 

@@ -6,6 +6,7 @@
 #include <glow/common/log.hh>
 #include <limits>
 #include <random>
+#include <algorithm>
 
 /*
  Algorithm for placing probes in the scene and assigning probes to vertices:
@@ -53,83 +54,72 @@ ReflProbeBaker::ReflProbeBaker(RenderPipeline& pipeline, const PathTracer& pathT
         : pipeline(&pipeline), pathTracer(&pathTracer) {
     // Do nothing
 }
-    
-void ReflProbeBaker::bake(const Scene& scene, glm::ivec3 gridDim, int envMapRes) {
+
+void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridDim) {
     // Compute voxel grid
-    glm::vec3 min, max;
-    scene.getBoundingBox(min, max);
-  
-    min.y += 1.0f;
-    max.y += 1.0f;
-    voxelSize = (max - min) / glm::vec3(gridDim.x, gridDim.y, gridDim.z);
+    scene.getBoundingBox(gridMin, gridMax);
+    gridMin.y += 0.5f; // Make sure no probes are generated "on the ground"
+    gridMax.y += 2.0f; // Make sure some reflections above the scene are captured
     
-    min += voxelSize * 0.2f;
-    max -= voxelSize * 0.2f;
-    voxelSize = (max - min) / glm::vec3(gridDim.x, gridDim.y, gridDim.z);
-    gridDimensions = gridDim;
+    this->voxelSize = (gridMax - gridMin) / glm::vec3(gridDim);
+    this->gridDimensions = gridDim;
     
     // Determine voxel types
-    voxelTypes.resize((gridDim.x + 1) * (gridDim.y + 1) * (gridDim.z + 1), VoxelType::Empty);
-    for (int z = 0; z <= gridDim.z; ++z) {
-        for (int y = 0; y <= gridDim.y; ++y) {
-            for (int x = 0; x <= gridDim.x; ++x) {
-                int voxelIndex = x + y * gridDim.x + z * gridDim.x * gridDim.y;
-                glm::vec3 voxelPos = min + voxelSize * glm::vec3(x, y, z);
-                voxelTypes[voxelIndex] = determineVoxelType(scene.getPrimitives(), voxelPos);
-            }
-        } 
-    }
+    voxelTypes.resize(gridDim.x * gridDim.y * gridDim.z, VoxelType::Empty);
+    forEachVoxel([&](int x, int y, int z) {
+        voxelTypes[getVoxelIndex({x, y, z})] = determineVoxelType(scene.getPrimitives(), getVoxelCenterWS({x, y, z}));
+    });
     
     // Generate env maps for empty and surface voxels
-    for (int z = 0; z <= gridDim.z; ++z) {
-        for (int y = 0; y <= gridDim.y; ++y) {
-            for (int x = 0; x <= gridDim.x; ++x) {
-                int voxelIndex = x + y * gridDim.x + z * gridDim.x * gridDim.y;
-                if (voxelTypes[voxelIndex] == VoxelType::Full) {
-                    continue;
-                }
-                
-                ReflectionProbe probe;
-                probe.position = min + voxelSize * glm::vec3(x, y, z);
-                probe.aabbMin = probe.position - voxelSize * 0.5f; // TODO: Compute correct bounds
-                probe.aabbMax = probe.position + voxelSize * 0.5f; // TODO: Compute correct bounds
-                probe.ggxEnvMap = pipeline->renderEnvironmentMap(probe.position, envMapRes, scene.getMeshes());
-                probes.push_back(probe);
+    forEachVoxel([&](int x, int y, int z) {
+        int voxelIndex = getVoxelIndex({x, y, z});
+        if (voxelTypes[voxelIndex] != VoxelType::Full) {
+            ReflectionProbe probe;
+            probe.position = getVoxelCenterWS({x, y, z});
+            probe.aabbMin = probe.position - voxelSize * 0.5f; // TODO: Compute correct bounds
+            probe.aabbMax = probe.position + voxelSize * 0.5f; // TODO: Compute correct bounds
+            //probe.ggxEnvMap = pipeline->renderEnvironmentMap(probe.position, envMapRes, scene.getMeshes());
+            probes.push_back(probe);
+        }
+    });
+}
+
+std::vector<std::vector<glm::uvec4>> ReflProbeBaker::computePrimitiveProbeIndices(const Scene& scene) {
+    std::vector<std::vector<glm::uvec4>> primitiveProbeIndices;
+    
+    // Find K closest probes vor each vertex
+    for (const auto& prim : scene.getPrimitives()) {
+        std::vector<glm::uvec4> probeIndices;
+        for (auto vertex : prim.positions) {
+            glm::vec3 vertexWS = prim.transform * glm::vec4(vertex, 1.0f);
+            
+            std::vector<int> indices(probes.size());
+            std::iota(indices.begin(), indices.end(), 0);
+            
+            std::vector<float> distances(probes.size());
+            for (std::size_t i = 0; i < probes.size(); ++i) {
+                distances[i] = glm::distance2(probes[i].position, vertexWS);
             }
-        } 
+            
+            std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+                return distances[a] < distances[b];
+            });
+            
+            probeIndices.push_back({ indices[0], indices[1], indices[2], indices[4] });
+        }
+        
+        primitiveProbeIndices.push_back(probeIndices);
     }
     
-    // Assign K best probes to all voxels
-    for (int z = 0; z <= gridDim.z; ++z) {
-        for (int y = 0; y <= gridDim.y; ++y) {
-            for (int x = 0; x <= gridDim.x; ++x) {
-                
-                std::vector<int> probeViewCount(probes.size(), 0);
-                
-                int numSamples = 512;
-                for (int sample = 0; sample < numSamples; ++sample) {
-                    glm::vec3 voxelPos = min + voxelSize * glm::vec3(x, y, z);
-                    glm::vec3 voxelMin = voxelPos - voxelSize * 0.5f;
-                    glm::vec3 voxelMax = voxelPos + voxelSize * 0.5f;
-                    glm::vec3 origin = sampleBoxUniform(voxelMin, voxelMax);
-                    glm::vec3 dir = sampleSphereUniform(origin, 1.0f);
-                    
-                    glm::vec3 intersection;
-                    if (pathTracer->testIntersection(origin, dir, intersection)) {
-                        for (std::size_t i = 0; i < probes.size(); ++i) {
-                            glm::vec3 toProbe = glm::normalize(probes[i].position - intersection);
-                            if (pathTracer->testOcclusionDist(intersection, toProbe) < 0) {
-                                probeViewCount[i]++;
-                            }
-                        }
-                    }
-                    
-                }
-            }
-        } 
+    return primitiveProbeIndices;
+}
+
+const std::vector<ReflectionProbe>& ReflProbeBaker::bakeGGXEnvProbes(const Scene& scene, int envMapRes) {
+    for (auto& probe : probes) {
+        probe.ggxEnvMap = pipeline->renderEnvironmentMap(probe.position, envMapRes, scene.getMeshes());
     }
 }
-    
+
 std::vector<ReflectionProbe>& ReflProbeBaker::getReflectionProbes() {
     return probes;
 }
@@ -172,4 +162,22 @@ ReflProbeBaker::VoxelType ReflProbeBaker::determineVoxelType(const std::vector<P
     }
 */
     return type;
+}
+
+glm::vec3 ReflProbeBaker::getVoxelCenterWS(glm::ivec3 voxelCoord) const {
+    return gridMin + glm::vec3(voxelCoord) * voxelSize + voxelSize * 0.5f;
+}
+
+std::size_t ReflProbeBaker::getVoxelIndex(glm::ivec3 voxelCoord) const {
+    return voxelCoord.x + voxelCoord.y * gridDimensions.x + voxelCoord.z * gridDimensions.x * gridDimensions.y;
+}
+
+void ReflProbeBaker::forEachVoxel(const std::function<void(int, int, int)>& body) {
+    for (int z = 0; z < gridDimensions.z; ++z) {
+        for (int y = 0; y < gridDimensions.y; ++y) {
+            for (int x = 0; x < gridDimensions.x; ++x) {
+                body(x, y, z);
+            }
+        } 
+    }
 }

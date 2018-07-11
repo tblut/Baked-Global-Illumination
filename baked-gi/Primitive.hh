@@ -20,6 +20,7 @@ public:
 	std::vector<glm::vec4> tangents;
 	std::vector<glm::vec2> texCoords;
 	std::vector<glm::vec2> lightMapTexCoords;
+    std::vector<glm::uvec4> reflectionProbeIndices;
 	std::vector<unsigned int> indices;
 	GLenum mode;
 

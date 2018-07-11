@@ -73,9 +73,8 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
-	scene.buildRealtimeObjects(lmPath);// glow::util::pathOf(__FILE__) + "/textures/test2_ao.lm");
-
-	auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
+    
+    auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
 	auto skybox = CubeMap::loadFromFiles(
 		pbt + "/posx.jpg",
 		pbt + "/negx.jpg",
@@ -85,11 +84,14 @@ void BakedGIApp::init() {
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
+    reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
+    reflProbeBaker->generateEmptyProbeGrid(scene, { 3, 2, 3 });
+	scene.buildRealtimeObjects(lmPath, reflProbeBaker->computePrimitiveProbeIndices(scene));
+    
     //pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
     //pipeline->setDebugReflProbeGridEnabled(true);
     
-    reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
-    reflProbeBaker->bake(scene, {4,4,4});
+    reflProbeBaker->bakeGGXEnvProbes(scene, 128);
     pipeline->setReflectionProbes(reflProbeBaker->getReflectionProbes());
 
 	

@@ -177,7 +177,7 @@ void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridD
 
 			glow::info() << probeIndices[0] << "  " << probeIndices[1] << "  " << probeIndices[2];
 
-			probeVisibility[getVoxelIndex({ x, y, z })] = glm::ivec3(0);// glm::ivec3(probeIndices[0], probeIndices[1], probeIndices[2]);
+			probeVisibility[getVoxelIndex({ x, y, z })] = glm::ivec3(probeIndices[0], probeIndices[1], probeIndices[2]);
 		}
 	});
 
@@ -405,6 +405,7 @@ void ReflProbeBaker::computeProbeAABB(glm::vec3 probePos, glm::vec3& outMin, glm
 
 	float tfarBottom = pathTracer->testOcclusionDist(probePos, glm::vec3(0, -1, 0));
 	outMin.y = tfarBottom < 0.0f ? -std::numeric_limits<float>::max() : probePos.y - tfarBottom;
+	glow::info() << probePos.y;
 
 	float tfarTop = pathTracer->testOcclusionDist(probePos, glm::vec3(0, 1, 0));
 	outMax.y = tfarTop < 0.0f ? std::numeric_limits<float>::max() : probePos.y + tfarTop;

@@ -74,12 +74,13 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	vec3 probePos1 = getProbePositionForLayer(probeLayers.y);
 	vec3 probePos2 = getProbePositionForLayer(probeLayers.z);
 
-	vec3 aabbMin0 = probePos0 - vec3(5);//getProbeAABBMin(probeLayers.x);
-	vec3 aabbMax0 = probePos0 + vec3(5);//getProbeAABBMax(probeLayers.x);
-	vec3 aabbMin1 = probePos1 - vec3(5);//getProbeAABBMin(probeLayers.y);
-	vec3 aabbMax1 = probePos1 + vec3(5);//getProbeAABBMax(probeLayers.y);
-	vec3 aabbMin2 = probePos2 - vec3(5);//getProbeAABBMin(probeLayers.z);
-	vec3 aabbMax2 = probePos2 + vec3(5);//getProbeAABBMax(probeLayers.z);
+	vec3 boxSize = vec3(20);
+	vec3 aabbMin0 = probePos0 - boxSize;//getProbeAABBMin(probeLayers.x);
+	vec3 aabbMax0 = probePos0 + boxSize;//getProbeAABBMax(probeLayers.x);
+	vec3 aabbMin1 = probePos1 - boxSize;//getProbeAABBMin(probeLayers.y);
+	vec3 aabbMax1 = probePos1 + boxSize;//getProbeAABBMax(probeLayers.y);
+	vec3 aabbMin2 = probePos2 - boxSize;//getProbeAABBMin(probeLayers.z);
+	vec3 aabbMax2 = probePos2 + boxSize;//getProbeAABBMax(probeLayers.z);
 
 	vec3 R0 = parallaxCorrectedReflection(R, worldPos, probePos0, aabbMin0, aabbMax0);
 	vec3 R1 = parallaxCorrectedReflection(R, worldPos, probePos1, aabbMin1, aabbMax1);
@@ -91,8 +92,42 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 
 	vec3 envcolor = vec3(1,0,1);// = (envcolor0 + envcolor1 + envcolor2) / 3.0;
 	if (isInInnerBox(worldPos, aabbMin0, aabbMax0)) envcolor = envcolor0;
-	if (isInInnerBox(worldPos, aabbMin1, aabbMax1)) envcolor = envcolor1;
-	if (isInInnerBox(worldPos, aabbMin2, aabbMax2)) envcolor = envcolor2;
+	else if (isInInnerBox(worldPos, aabbMin1, aabbMax1)) envcolor = envcolor1;
+	else if (isInInnerBox(worldPos, aabbMin2, aabbMax2)) envcolor = envcolor2;
+	else {
+		bool isInBox0 = isInBox(worldPos, aabbMin0, aabbMax0);
+		bool isInBox1 = isInBox(worldPos, aabbMin1, aabbMax1);
+		bool isInBox2 = isInBox(worldPos, aabbMin2, aabbMax2);
+
+		if (isInBox0 && isInBox1 && isInBox2) {
+			vec3 blendFactors = getBlendMapFactors3(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
+			envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
+		}
+		else if (isInBox0 && isInBox1) {
+			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1);
+			envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y;
+		}
+		else if (isInBox0 && isInBox2) {
+			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin0, aabbMax0, aabbMin2, aabbMax2);
+			envcolor = envcolor0 * blendFactors.x + envcolor2 * blendFactors.y;
+		}
+		else if (isInBox1 && isInBox2) {
+			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
+			envcolor = envcolor1 * blendFactors.x + envcolor2 * blendFactors.y;
+		}
+		else if (isInBox0) {
+			float blendFactor = getBlendMapFactors1(worldPos, aabbMin0, aabbMax0);
+			envcolor = envcolor0 * blendFactor;
+		}
+		else if (isInBox1) {
+			float blendFactor = getBlendMapFactors1(worldPos, aabbMin1, aabbMax1);
+			envcolor = envcolor1 * blendFactor;
+		}
+		else if (isInBox2) {
+			float blendFactor = getBlendMapFactors1(worldPos, aabbMin2, aabbMax2);
+			envcolor = envcolor2 * blendFactor;
+		}
+	}
 
 	/*
 	float layer000 = getProbeLayer(gridCell + vec3(0, 0, 0));

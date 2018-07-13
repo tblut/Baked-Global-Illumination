@@ -46,4 +46,5 @@ private:
 	float exposureAdjustment = 1.0f;
 	int debugEnvMapMipLevel = 0;
 	bool showDebugEnvProbes = true;
+	bool useIbl = true;
 };

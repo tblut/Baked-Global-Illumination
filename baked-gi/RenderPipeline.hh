@@ -46,6 +46,7 @@ public:
     
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
+	void setUseIBL(bool use);
 	void setBloomPercentage(float value);
 	void setExposureAdjustment(float value);
     
@@ -118,6 +119,7 @@ private:
 	std::vector<Mesh> untexturedMeshes;
 	bool useIrradianceMap = true;
 	bool useAOMap = true;
+	bool useIbl = true;
 	float bloomPercentage = 0.02f;
 	float exposureAdjustment = 1.0f;
 	glm::vec3 debugEnvMapPosition;

@@ -16,6 +16,12 @@ vec3 parallaxCorrectedReflection(vec3 R, vec3 objectPos, vec3 cubeMapPos, vec3 a
     return intersectionPos - cubeMapPos;
 }
 
+bool isInBox(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
+	return worldPos.x > aabbMin.x && worldPos.x < aabbMax.x
+		&& worldPos.y > aabbMin.y && worldPos.y < aabbMax.y
+		&& worldPos.z > aabbMin.z && worldPos.z < aabbMax.z;
+}
+
 bool isInInnerBox(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
 	vec3 halfSize = (aabbMax - aabbMin) * 0.5;
 	vec3 innerMin = aabbMin + halfSize * 0.5;
@@ -24,79 +30,118 @@ bool isInInnerBox(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
 		&& worldPos.y > innerMin.y && worldPos.y < innerMax.y
 		&& worldPos.z > innerMin.z && worldPos.z < innerMax.z;
 }
-/*
+
+
 float getInfluenceWeight(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
-	vec3 localPos = vec3(0);
-	vec3 localDir = vec3(abs())
-    Vector LocalDir = Vector(Abs(LocalPosition.X), Abs(LocalPosition.Y), Abs(LocalPosition.Z));
-    LocalDir = (LocalDir - BoxInnerRange) / (BoxOuterRange - BoxInnerRange);
-    // Take max of all axis
-    NDF = LocalDir.GetMax();
+	vec3 localPos = worldPos - aabbMin;
+	vec3 localDir = vec3(abs(localPos.x), abs(localPos.y), abs(localPos.z));
+
+	vec3 innerHalfSize = (aabbMax - aabbMin) * 0.25;
+	vec3 innerSize = (aabbMax - innerHalfSize) - (aabbMin + innerHalfSize);
+	vec3 outerSize = aabbMax - aabbMin;
+
+	localDir = (localDir - innerSize) / (outerSize - innerSize);
+	return max(localDir.x, max(localDir.y, localDir.z));
 }
 
-void GetBlendMapFactor(int Num, CubemapInfluenceVolume* InfluenceVolume, float* BlendFactor)
-{
+float getBlendMapFactors1(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0) {
     // First calc sum of NDF and InvDNF to normalize value
-    float SumNDF            = 0.0f;
-    float InvSumNDF         = 0.0f;
-    float SumBlendFactor    = 0.0f;
-    // The algorithm is as follow
-    // Primitive have a normalized distance function which is 0 at center and 1 at boundary
-    // When blending multiple primitive, we want the following constraint to be respect:
-    // A - 100% (full weight) at center of primitive whatever the number of primitive overlapping
-    // B - 0% (zero weight) at boundary of primitive whatever the number of primitive overlapping
-    // For this we calc two weight and modulate them.
-    // Weight0 is calc with NDF and allow to respect constraint B
-    // Weight1 is calc with inverse NDF, which is (1 - NDF) and allow to respect constraint A
-    // What enforce the constraint is the special case of 0 which once multiply by another value is 0.
-    // For Weight 0, the 0 will enforce that boundary is always at 0%, but center will not always be 100%
-    // For Weight 1, the 0 will enforce that center is always at 100%, but boundary will not always be 0%
-    // Modulate weight0 and weight1 then renormalizing will allow to respects A and B at the same time.
-    // The in between is not linear but give a pleasant result.
-    // In practice the algorithm fail to avoid popping when leaving inner range of a primitive
-    // which is include in at least 2 other primitives.
-    // As this is a rare case, we do with it.
-    for (INT i = 0; i < Num; ++i)
-    {
-        SumNDF       += InfluenceVolume(i).NDF;
-        InvSumNDF    += (1.0f - InfluenceVolume(i).NDF);
+    float sumNDF = 0.0;
+    float invSumNDF = 0.0;
+    float sumBlendFactor = 0.0;
+
+	float ndf0 = getInfluenceWeight(worldPos, aabbMin0, aabbMax0);
+
+	sumNDF += ndf0;
+
+	invSumNDF += (1.0 - ndf0);
+
+	float blendFactor;
+	blendFactor = (1.0 - (ndf0 / sumNDF)) / (2 - 1);
+	blendFactor *= ((1.0 - ndf0) / invSumNDF);
+
+	sumBlendFactor += blendFactor;
+
+    if (sumBlendFactor == 0.0) {
+        sumBlendFactor = 1.0;
     }
 
-    // Weight0 = normalized NDF, inverted to have 1 at center, 0 at boundary.
-    // And as we invert, we need to divide by Num-1 to stay normalized (else sum is > 1). 
-    // respect constraint B.
-    // Weight1 = normalized inverted NDF, so we have 1 at center, 0 at boundary
-    // and respect constraint A.
-    for (INT i = 0; i < Num; ++i)
-    {
-        BlendFactor[i] = (1.0f - (InfluenceVolume(i).NDF / SumNDF)) / (Num - 1);
-        BlendFactor[i] *= ((1.0f - InfluenceVolume(i).NDF) / InvSumNDF);
-        SumBlendFactor += BlendFactor[i];
-    }
+    float constVal = 1.0 / sumBlendFactor;
+	blendFactor *= constVal;
 
-    // Normalize BlendFactor
-    if (SumBlendFactor == 0.0f) // Possible with custom weight
-    {
-        SumBlendFactor = 1.0f;
-    }
-
-    float ConstVal = 1.0f / SumBlendFactor;
-    for (int i = 0; i < Num; ++i)
-    {
-        BlendFactor[i] *= ConstVal;
-    }
+	return blendFactor;
 }
 
-// Main code
-for (int i = 0; i < NumPrimitive; ++i)
- {
-     if (In inner range)
-         EarlyOut;
+vec2 getBlendMapFactors2(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0, vec3 aabbMin1, vec3 aabbMax1) {
+    // First calc sum of NDF and InvDNF to normalize value
+    float sumNDF = 0.0;
+    float invSumNDF = 0.0;
+    float sumBlendFactor = 0.0;
 
-     if (In outer range)
-        SelectedInfluenceVolumes.Add(InfluenceVolumes.GetInfluenceWeights(LocationPOI));
- }
+	float ndf0 = getInfluenceWeight(worldPos, aabbMin0, aabbMax0);
+	float ndf1 = getInfluenceWeight(worldPos, aabbMin1, aabbMax1);
 
-SelectedInfluenceVolumes.Sort();
-GetBlendMapFactor(SelectedInfluenceVolumes.Num(), SelectedInfluenceVolumes, outBlendFactor)
-*/
+	sumNDF += ndf0;
+	sumNDF += ndf1;
+
+	invSumNDF += (1.0 - ndf0);
+	invSumNDF += (1.0 - ndf1);
+
+	vec2 blendFactors;
+	blendFactors.x = (1.0 - (ndf0 / sumNDF)) / (2 - 1);
+	blendFactors.x *= ((1.0 - ndf0) / invSumNDF);
+	blendFactors.y = (1.0 - (ndf1 / sumNDF)) / (2 - 1);
+	blendFactors.y *= ((1.0 - ndf1) / invSumNDF);
+
+	sumBlendFactor += blendFactors.x;
+	sumBlendFactor += blendFactors.y;
+
+    if (sumBlendFactor == 0.0) {
+        sumBlendFactor = 1.0;
+    }
+
+    float constVal = 1.0 / sumBlendFactor;
+	blendFactors *= constVal;
+
+	return blendFactors;
+}
+
+vec3 getBlendMapFactors3(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0, vec3 aabbMin1, vec3 aabbMax1, vec3 aabbMin2, vec3 aabbMax2) {
+    // First calc sum of NDF and InvDNF to normalize value
+    float sumNDF = 0.0;
+    float invSumNDF = 0.0;
+    float sumBlendFactor = 0.0;
+
+	float ndf0 = getInfluenceWeight(worldPos, aabbMin0, aabbMax0);
+	float ndf1 = getInfluenceWeight(worldPos, aabbMin1, aabbMax1);
+	float ndf2 = getInfluenceWeight(worldPos, aabbMin2, aabbMax2);
+
+	sumNDF += ndf0;
+	sumNDF += ndf1;
+	sumNDF += ndf2;
+
+	invSumNDF += (1.0 - ndf0);
+	invSumNDF += (1.0 - ndf1);
+	invSumNDF += (1.0 - ndf2);
+
+	vec3 blendFactors;
+	blendFactors.x = (1.0 - (ndf0 / sumNDF)) / (3 - 1);
+	blendFactors.x *= ((1.0 - ndf0) / invSumNDF);
+	blendFactors.y = (1.0 - (ndf1 / sumNDF)) / (3 - 1);
+	blendFactors.y *= ((1.0 - ndf1) / invSumNDF);
+	blendFactors.z = (1.0 - (ndf2 / sumNDF)) / (3 - 1);
+	blendFactors.z *= ((1.0 - ndf2) / invSumNDF);
+
+	sumBlendFactor += blendFactors.x;
+	sumBlendFactor += blendFactors.y;
+	sumBlendFactor += blendFactors.z;
+
+    if (sumBlendFactor == 0.0) {
+        sumBlendFactor = 1.0;
+    }
+
+    float constVal = 1.0 / sumBlendFactor;
+	blendFactors *= constVal;
+
+	return blendFactors;
+}

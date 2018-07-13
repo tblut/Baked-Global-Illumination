@@ -24,6 +24,7 @@ uniform vec3 uLightColor;
 uniform float uBloomPercentage;
 uniform bool uUseIrradianceMap;
 uniform bool uUseAOMap;
+uniform bool uUseIBL;
 
 uniform vec3 uProbePos;
 uniform vec3 uAABBMin;
@@ -69,9 +70,11 @@ void main() {
 	vec3 direct = shadingGGX(N, V, L, color, roughness, uMetallic) * uLightColor * shadowFactor;
     
 #ifdef IBL
-    vec3 R = reflect(-V, N);
-	//direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
-	direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
+	if (uUseIBL) {
+		vec3 R = reflect(-V, N);
+		//direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
+		direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
+	}
 #endif
 
 	vec3 indirect = vec3(0.0);

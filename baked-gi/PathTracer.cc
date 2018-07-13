@@ -387,20 +387,21 @@ float PathTracer::testOcclusionDist(const glm::vec3& origin, const glm::vec3& di
 	return -std::numeric_limits<float>::infinity();
 }
 
-bool PathTracer::testIntersection(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& intersection) const {
+float PathTracer::testIntersection(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& normal) const {
     RTCRayHit rayhit = { Ray(origin, dir, 0.001f, std::numeric_limits<float>::infinity()), Hit() };
 	RTCIntersectContext context;
 	rtcInitIntersectContext(&context);
 	rtcIntersect1(scene, &context, &rayhit);
 
 	if (rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        intersection.x = rayhit.ray.org_x + rayhit.ray.dir_x * rayhit.ray.tfar;
-        intersection.y = rayhit.ray.org_y + rayhit.ray.dir_y * rayhit.ray.tfar;
-        intersection.z = rayhit.ray.org_z + rayhit.ray.dir_z * rayhit.ray.tfar;
-		return true;
+		normal.x = rayhit.hit.Ng_x;
+		normal.y = rayhit.hit.Ng_y;
+		normal.z = rayhit.hit.Ng_z;
+		normal = glm::normalize(normal);
+		return rayhit.ray.tfar;
 	}
 	
-	return false;
+	return -std::numeric_limits<float>::infinity();
 }
 
 void PathTracer::setLight(const DirectionalLight& light) {

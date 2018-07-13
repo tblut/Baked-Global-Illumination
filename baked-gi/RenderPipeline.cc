@@ -3,6 +3,8 @@
 #include "Scene.hh"
 
 #include <glow/objects/Program.hh>
+#include <glow/objects/Texture1D.hh>
+#include <glow/objects/Texture1DArray.hh>
 #include <glow/objects/Texture2D.hh>
 #include <glow/objects/TextureRectangle.hh>
 #include <glow/objects/TextureCubeMap.hh>
@@ -319,8 +321,65 @@ void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& 
 	reflectionProbeArray = ggxTargetArray;
 }
 
+void RenderPipeline::setProbeGridDimensions(const glm::ivec3& dim) {
+	probeGridDimensions = dim;
+}
+
+void RenderPipeline::setProbeVoxelSize(const glm::vec3& size) {
+	probeVoxelSize = size;
+}
+
+void RenderPipeline::setProbeVisibility(const std::vector<glm::ivec3>& visiblity) {
+	std::vector<glm::vec3> data;
+	data.reserve(visiblity.size());
+	for (auto element : visiblity) {
+		data.push_back(glm::vec3(element));
+	}
+
+	probeVisibilityTexture = glow::Texture1D::createStorageImmutable(static_cast<int>(data.size()), GL_RGB32F);
+	{
+		auto tex = probeVisibilityTexture->bind();
+		tex.setFilter(GL_NEAREST, GL_NEAREST);
+		tex.setData(GL_RGB32F, static_cast<int>(data.size()), GL_RGB, GL_FLOAT, data.data());
+	}
+}
+
 void RenderPipeline::setReflectionProbes(const std::vector<ReflectionProbe>& probes) {
     reflectionProbes = probes;
+
+	{
+		std::vector<glm::vec3> data;
+		data.reserve(2 * probes.size());
+		for (const auto& probe : probes) {
+			data.push_back(probe.aabbMin);
+			data.push_back(probe.aabbMax);
+
+			glow::info() << probe.aabbMin.x << "  " << probe.aabbMin.y << "  " << probe.aabbMin.z;
+			glow::info() << probe.aabbMax.x << "  " << probe.aabbMax.y << "  " << probe.aabbMax.z << "\n";
+		}
+
+		probeAABBTexture = glow::Texture1DArray::createStorageImmutable(2, static_cast<int>(probes.size()), GL_RGB32F);
+		{
+			auto tex = probeAABBTexture->bind();
+			tex.setFilter(GL_NEAREST, GL_NEAREST);
+			tex.setData(GL_RGB32F, 2, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
+		}
+	}
+
+	{
+		std::vector<glm::vec3> data;
+		data.reserve(probes.size());
+		for (const auto& probe : probes) {
+			data.push_back(probe.position);
+		}
+
+		probePositionTexture = glow::Texture1DArray::createStorageImmutable(1, static_cast<int>(probes.size()), GL_RGB32F);
+		{
+			auto tex = probePositionTexture->bind();
+			tex.setFilter(GL_NEAREST, GL_NEAREST);
+			tex.setData(GL_RGB32F, 1, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
+		}
+	}
 }
 
 void RenderPipeline::setAmbientColor(const glm::vec3& color) {
@@ -471,10 +530,15 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uBloomPercentage", bloomPercentage);
+		p.setUniform("uProbeGridCellSize", probeVoxelSize);
+		p.setUniform("uProbeGridDimensions", glm::vec3(probeGridDimensions));
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
+		p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
+		p.setTexture("uProbeAABBTexture", probeAABBTexture);
+		p.setTexture("uProbePositionTexture", probePositionTexture);
 
 		for (const auto& mesh : texturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -509,17 +573,22 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
         p.setUniform("uProbePos", probePos);
         p.setUniform("uAABBMin", probeAabbMin);
         p.setUniform("uAABBMax", probeAabbMax);
+		p.setUniform("uProbeGridCellSize", probeVoxelSize);
+		p.setUniform("uProbeGridDimensions", glm::vec3(probeGridDimensions));
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
+		p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
+		p.setTexture("uProbeAABBTexture", probeAABBTexture);
+		p.setTexture("uProbePositionTexture", probePositionTexture);
 
 		for (const auto& mesh : untexturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
 			p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 			p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-			p.setUniform("uMetallic", mesh.material.metallic);
-			p.setUniform("uRoughness", mesh.material.roughness);
+			p.setUniform("uMetallic", 1.0f);// mesh.material.metallic);
+			p.setUniform("uRoughness", 0.0f);// mesh.material.roughness);
 			p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 			p.setTexture("uTextureAO", mesh.material.aoMap);
 

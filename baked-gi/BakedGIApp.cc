@@ -85,15 +85,21 @@ void BakedGIApp::init() {
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
     reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
-    reflProbeBaker->generateEmptyProbeGrid(scene, { 3, 2, 3 });
+    reflProbeBaker->generateEmptyProbeGrid(scene, { 3, 3, 3 });
 	scene.buildRealtimeObjects(lmPath, reflProbeBaker->computePrimitiveProbeIndices(scene));
     
     //pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
     //pipeline->setDebugReflProbeGridEnabled(true);
     
+	pipeline->setProbeGridDimensions(reflProbeBaker->getProbeGridDimensions());
+	pipeline->setProbeVoxelSize(reflProbeBaker->getProbeVoxelSize());
     pipeline->setReflectionProbes(reflProbeBaker->getReflectionProbes());
-	pipeline->renderReflectionProbes(reflProbeBaker->getReflectionProbes(), 128, scene.getMeshes());
+	pipeline->setProbeVisibility(reflProbeBaker->getProbeVisibility());
 
+	int bounces = 3;
+	for (int i = 0; i < bounces; ++i) {
+		pipeline->renderReflectionProbes(reflProbeBaker->getReflectionProbes(), 128, scene.getMeshes());
+	}
 	
 	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");

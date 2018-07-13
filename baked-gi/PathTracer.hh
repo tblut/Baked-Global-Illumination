@@ -19,7 +19,7 @@ public:
 	void buildScene(const std::vector<Primitive>& primitives);
 	glm::vec3 trace(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& weight = glm::vec3(1.0f), int depth = 0) const;
 	float testOcclusionDist(const glm::vec3& origin, const glm::vec3& dir) const;
-    bool testIntersection(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& intersection) const;
+	float testIntersection(const glm::vec3& origin, const glm::vec3& dir, glm::vec3& normal) const;
 	void setLight(const DirectionalLight& light);
     void setBackgroundCubeMap(const SharedCubeMap& cubemap);
 	void setMaxPathDepth(unsigned int depth);

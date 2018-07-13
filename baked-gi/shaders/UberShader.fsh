@@ -1,6 +1,5 @@
 #include "BRDF.glsl"
 #include "Shadow.glsl"
-#include "CubeMapUtils.glsl"
 
 in vec3 vWorldPos;
 in vec3 vNormal;
@@ -10,7 +9,6 @@ in vec2 vTexCoord;
 #endif
 in vec2 vLightMapTexCoord;
 in vec4 vLightSpacePos;
-in vec4 vReflectionProbeIndices;
 
 out vec3 fColor;
 out vec3 fBrightColor;
@@ -72,9 +70,8 @@ void main() {
     
 #ifdef IBL
     vec3 R = reflect(-V, N);
-    //R = parallaxCorrectedReflection(R, vWorldPos, uProbePos, uAABBMin, uAABBMax);
 	//direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
-	direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vReflectionProbeIndices);
+	direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
 #endif
 
 	vec3 indirect = vec3(0.0);

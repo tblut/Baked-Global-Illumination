@@ -24,8 +24,11 @@ public:
 	void resizeBuffers(int w, int h);
 
 	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
-	void renderReflectionProbes(const std::vector<ReflectionProbe>& probes,int size, const std::vector<Mesh>& meshes);
+	void renderReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, const std::vector<Mesh>& meshes);
 
+	void setProbeGridDimensions(const glm::ivec3& dim);
+	void setProbeVoxelSize(const glm::vec3& size);
+	void setProbeVisibility(const std::vector<glm::ivec3>& visiblity);
     void setReflectionProbes(const std::vector<ReflectionProbe>& probes);
 	void setAmbientColor(const glm::vec3& color);
 	void attachCamera(const glow::camera::GenericCamera& camera);
@@ -104,6 +107,9 @@ private:
 	glow::SharedTexture2D envLutGGX;
 	glow::SharedTextureCubeMap defaultEnvMapGGX;
 	glow::SharedTextureCubeMapArray reflectionProbeArray;
+	glow::SharedTexture1D probeVisibilityTexture;
+	glow::SharedTexture1DArray probeAABBTexture;
+	glow::SharedTexture1DArray probePositionTexture;
 
 	const glow::camera::GenericCamera* camera;
 	glm::vec3 ambientColor = glm::vec3(0.0f);
@@ -125,4 +131,6 @@ private:
     glm::vec3 probePos; // flb, frb, frt, flt, blb, brb, brt, blt
     glm::vec3 probeAabbMin;
     glm::vec3 probeAabbMax;
+	glm::vec3 probeVoxelSize;
+	glm::ivec3 probeGridDimensions;
 };

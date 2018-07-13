@@ -16,8 +16,11 @@ public:
     ReflProbeBaker(RenderPipeline& pipeline, const PathTracer& pathTracer);
     
     void generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridDim);
-    std::vector<std::vector<glm::uvec4>> computePrimitiveProbeIndices(const Scene& scene);
+    std::vector<std::vector<unsigned int>> computePrimitiveProbeIndices(const Scene& scene);
     std::vector<ReflectionProbe>& getReflectionProbes();
+	glm::vec3 getProbeVoxelSize() const;
+	glm::ivec3 getProbeGridDimensions() const;
+	std::vector<glm::ivec3>& getProbeVisibility();
     
 private:
     enum class VoxelType {
@@ -30,6 +33,8 @@ private:
     glm::vec3 getVoxelCenterWS(glm::ivec3 voxelCoord) const;
     std::size_t getVoxelIndex(glm::ivec3 voxelCoord) const;
     void forEachVoxel(const std::function<void(int, int, int)>& body);
+	glm::vec3 getValidSampleInVoxel(glm::ivec3 coord, const Scene& scene) const;
+	void computeProbeAABB(glm::vec3 probePos, glm::vec3& outMin, glm::vec3& outMax) const;
     
     RenderPipeline* pipeline;
     const PathTracer* pathTracer;
@@ -41,4 +46,5 @@ private:
     std::vector<VoxelType> voxelTypes;
     std::vector<ReflectionProbe> probes;
 	glow::SharedTextureCubeMapArray envMapArray;
+	std::vector<glm::ivec3> probeVisibility;
 };

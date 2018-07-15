@@ -129,49 +129,7 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 		}
 	}
 
-	/*
-	float layer000 = getProbeLayer(gridCell + vec3(0, 0, 0));
-	float layer100 = getProbeLayer(gridCell + vec3(1, 0, 0));
-	float layer010 = getProbeLayer(gridCell + vec3(0, 1, 0));
-	float layer001 = getProbeLayer(gridCell + vec3(0, 0, 1));
-	float layer110 = getProbeLayer(gridCell + vec3(1, 1, 0));
-	float layer101 = getProbeLayer(gridCell + vec3(1, 0, 1));
-	float layer011 = getProbeLayer(gridCell + vec3(0, 1, 1));
-	float layer111 = getProbeLayer(gridCell + vec3(1, 1, 1));
-
-    vec3 envcolor000 = textureLod(uReflectionProbeArray, vec4(R, layer000), roughness * maxLevel).rgb;// * probeFactor000;
-	vec3 envcolor100 = textureLod(uReflectionProbeArray, vec4(R, layer100), roughness * maxLevel).rgb;// * probeFactor100;
-	vec3 envcolor010 = textureLod(uReflectionProbeArray, vec4(R, layer010), roughness * maxLevel).rgb;// * probeFactor010;
-	vec3 envcolor001 = textureLod(uReflectionProbeArray, vec4(R, layer001), roughness * maxLevel).rgb;// * probeFactor001;
-	vec3 envcolor110 = textureLod(uReflectionProbeArray, vec4(R, layer110), roughness * maxLevel).rgb;// * probeFactor110;
-	vec3 envcolor101 = textureLod(uReflectionProbeArray, vec4(R, layer101), roughness * maxLevel).rgb;// * probeFactor101;
-	vec3 envcolor011 = textureLod(uReflectionProbeArray, vec4(R, layer011), roughness * maxLevel).rgb;// * probeFactor011;
-	vec3 envcolor111 = textureLod(uReflectionProbeArray, vec4(R, layer111), roughness * maxLevel).rgb;// * probeFactor111;
-
-	vec3 probePos000 = getProbePosition(gridCell + vec3(0, 0, 0));
-	vec3 probePos100 = getProbePosition(gridCell + vec3(1, 0, 0));
-	vec3 probePos010 = getProbePosition(gridCell + vec3(0, 1, 0));
-	vec3 probePos001 = getProbePosition(gridCell + vec3(0, 0, 1));
-	vec3 probePos110 = getProbePosition(gridCell + vec3(1, 1, 0));
-	vec3 probePos101 = getProbePosition(gridCell + vec3(1, 0, 1));
-	vec3 probePos011 = getProbePosition(gridCell + vec3(0, 1, 1));
-	vec3 probePos111 = getProbePosition(gridCell + vec3(1, 1, 1));
-
-	float probeVis000 = dot(probePos000 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis100 = dot(probePos100 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis010 = dot(probePos010 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis001 = dot(probePos001 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis110 = dot(probePos110 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis101 = dot(probePos011 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis011 = dot(probePos101 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-	float probeVis111 = dot(probePos111 - worldPos, N) > 0.0 ? 1.0 : -1.0;
-
-
-	vec3 weights = fract(worldPos / uProbeGridCellSize);
-	vec3 envcolor = mix(mix(mix(envcolor000, envcolor100, weights.x), mix(envcolor010, envcolor110, weights.x), weights.y),
-		mix(mix(envcolor001, envcolor101, weights.x), mix(envcolor011, envcolor111, weights.x), weights.y), weights.z);
-	*/
-
+	//envcolor = probeLayers;
 
     return envcolor * (specularColor * envbrdf.x + envbrdf.y);
 }

@@ -6,6 +6,7 @@
 #include <glow/objects/Texture1D.hh>
 #include <glow/objects/Texture1DArray.hh>
 #include <glow/objects/Texture2D.hh>
+#include <glow/objects/Texture3D.hh>
 #include <glow/objects/TextureRectangle.hh>
 #include <glow/objects/TextureCubeMap.hh>
 #include <glow/objects/TextureCubeMapArray.hh>
@@ -36,10 +37,19 @@ RenderPipeline::RenderPipeline() {
 	precalcEnvBrdfLutShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvBrdfLut.csh");
 	precalcEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMap.csh");
 	precalcEnvMapProbeShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMapProbe.csh");
+	lineShader = glow::Program::createFromFile(workDir + "/shaders/Line");
 
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
 	vaoSphere = glow::geometry::UVSphere<>().generate();
+
+	{
+		auto abLine = glow::ArrayBuffer::create();
+		abLine->defineAttribute<glm::vec3>("aPosition");
+		glm::vec3 data[2] = { glm::vec3(0, 0, 0), glm::vec3(1, 0, 0) };
+		abLine->bind().setData(data);
+		vaoLine = glow::VertexArray::create(abLine, GL_LINES);
+	}
 	
 	hdrColorBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
 	brightnessBuffer = glow::TextureRectangle::create(2, 2, GL_RGB16F);
@@ -155,6 +165,16 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		p.setTexture("uHdrBuffer", hdrColorBuffer);
 		p.setTexture("uBloomBuffer", blurColorBufferB);
 		vaoQuad->bind().draw();
+	}
+
+	if (showDebugProbeVisGrid) { // Debug probe visiblity voxel grid 
+		renderDebugGrid(probeVisibilityMin, probeVisibilityMax, probeVisibilityVoxelSize,
+			probeVisibilityGridDimensions, { 1.0f, 0.0f, 0.0f });
+	}
+
+	if (showDebugProbeGrid) { // Debug probe voxel grid 
+		renderDebugGrid(probeVisibilityMin, probeVisibilityMax, probeVisibilityVoxelSize * probeVisibilityGridScale,
+			probeVisibilityGridDimensions / probeVisibilityGridScale, { 0.0f, 1.0f, 0.0f });
 	}
 
 	// Debug texture
@@ -321,26 +341,29 @@ void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& 
 	reflectionProbeArray = ggxTargetArray;
 }
 
-void RenderPipeline::setProbeGridDimensions(const glm::ivec3& dim) {
-	probeGridDimensions = dim;
+void RenderPipeline::setProbeVisibilityGridScale(int scale) {
+	probeVisibilityGridScale = scale;
 }
 
-void RenderPipeline::setProbeVoxelSize(const glm::vec3& size) {
-	probeVoxelSize = size;
-}
+void RenderPipeline::setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid) {
+	probeVisibilityGridDimensions = grid.getDimensions();
+	probeVisibilityVoxelSize = grid.getVoxelSize();
+	probeVisibilityMin = grid.getMin();
+	probeVisibilityMax = grid.getMax();
 
-void RenderPipeline::setProbeVisibility(const std::vector<glm::ivec3>& visiblity) {
-	std::vector<glm::vec3> data;
-	data.reserve(visiblity.size());
-	for (auto element : visiblity) {
-		data.push_back(glm::vec3(element));
-	}
-
-	probeVisibilityTexture = glow::Texture1D::createStorageImmutable(static_cast<int>(data.size()), GL_RGB32F);
 	{
-		auto tex = probeVisibilityTexture->bind();
-		tex.setFilter(GL_NEAREST, GL_NEAREST);
-		tex.setData(GL_RGB32F, static_cast<int>(data.size()), GL_RGB, GL_FLOAT, data.data());
+		std::vector<glm::vec3> data;
+		data.reserve(grid.getInternalArray().size());
+		for (auto element : grid.getInternalArray()) {
+			data.push_back(glm::vec3(element));
+		}
+
+		probeVisibilityTexture = glow::Texture3D::createStorageImmutable(grid.getDimensions().x, grid.getDimensions().y, grid.getDimensions().z, GL_RGB32F);
+		{
+			auto tex = probeVisibilityTexture->bind();
+			tex.setFilter(GL_NEAREST, GL_NEAREST);
+			tex.setData(GL_RGB32F, grid.getDimensions().x, grid.getDimensions().y, grid.getDimensions().z, GL_RGB, GL_FLOAT, data.data());
+		}
 	}
 }
 
@@ -447,6 +470,14 @@ void RenderPipeline::setDebugReflProbeGridEnabled(bool enabled) {
     isDebugProbeGridEnabled = enabled;
 }
 
+void RenderPipeline::setShowDebugProbeVisGrid(bool show) {
+	showDebugProbeVisGrid = show;
+}
+
+void RenderPipeline::setShowDebugProbeGrid(bool show) {
+	showDebugProbeGrid = show;
+}
+
 void RenderPipeline::setUseIrradianceMap(bool use) {
 	useIrradianceMap = use;
 }
@@ -535,8 +566,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
 		p.setUniform("uBloomPercentage", bloomPercentage);
-		p.setUniform("uProbeGridCellSize", probeVoxelSize);
-		p.setUniform("uProbeGridDimensions", glm::vec3(probeGridDimensions));
+		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
+		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
@@ -579,8 +610,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
         p.setUniform("uProbePos", probePos);
         p.setUniform("uAABBMin", probeAabbMin);
         p.setUniform("uAABBMax", probeAabbMax);
-		p.setUniform("uProbeGridCellSize", probeVoxelSize);
-		p.setUniform("uProbeGridDimensions", glm::vec3(probeGridDimensions));
+		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
+		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
@@ -744,4 +775,49 @@ glow::SharedTextureCubeMapArray RenderPipeline::makeDefaultReflectionProbes(int 
 	}
 
 	return envMapArray;
+}
+
+void RenderPipeline::renderDebugGrid(glm::vec3 min, glm::vec3 max, glm::vec3 voxelSize, glm::ivec3 gridDimensions, const glm::vec3& color) const {
+	GLOW_SCOPED(disable, GL_DEPTH_TEST);
+	GLOW_SCOPED(disable, GL_CULL_FACE);
+
+	auto p = lineShader->use();
+	p.setUniform("uColor", color);
+	p.setUniform("uView", camera->getViewMatrix());
+	p.setUniform("uProj", camera->getProjectionMatrix());
+
+	auto vao = vaoLine->bind();
+
+	// Horizontal lines
+	for (int z = 0; z <= gridDimensions.z; ++z) {
+		for (int y = 0; y <= gridDimensions.y; ++y) {
+			auto from = min + glm::vec3(0.0f, voxelSize.y, voxelSize.z) * glm::vec3(0.0f, y, z);
+			auto to = from + glm::vec3(max.x - min.x, 0.0f, 0.0f);
+			p.setUniform("uFrom", from);
+			p.setUniform("uTo", to);
+			vao.draw();
+		}
+	}
+
+	// Vertical lines
+	for (int z = 0; z <= gridDimensions.z; ++z) {
+		for (int x = 0; x <= gridDimensions.x; ++x) {
+			auto from = min + glm::vec3(voxelSize.x, 0.0f, voxelSize.z) * glm::vec3(x, 0.0f, z);
+			auto to = from + glm::vec3(0.0f, max.y - min.y, 0.0f);
+			p.setUniform("uFrom", from);
+			p.setUniform("uTo", to);
+			vao.draw();
+		}
+	}
+
+	// Depth lines
+	for (int x = 0; x <= gridDimensions.x; ++x) {
+		for (int y = 0; y <= gridDimensions.y; ++y) {
+			auto from = min + glm::vec3(voxelSize.x, voxelSize.y, 0.0f) * glm::vec3(x, y, 0.0f);
+			auto to = from + glm::vec3(0.0f, 0.0f, max.z - min.z);
+			p.setUniform("uFrom", from);
+			p.setUniform("uTo", to);
+			vao.draw();
+		}
+	}
 }

@@ -268,14 +268,6 @@ void Scene::render(RenderPipeline& pipeline) const {
 }
 
 void Scene::buildRealtimeObjects(const std::string& lightMapPath) {
-    buildRealtimeObjects(lightMapPath, std::vector<std::vector<unsigned int>>());
-}
-
-void Scene::buildRealtimeObjects(const std::vector<std::vector<unsigned int>>& primitiveProbeIndices)  {
-    buildRealtimeObjects("", primitiveProbeIndices);
-}
-
-void Scene::buildRealtimeObjects(const std::string& lightMapPath, const std::vector<std::vector<unsigned int>>& primitiveProbeIndices) {
 	auto defaultIrradianceMap = createNullIrradianceMap()->createTexture();
 	auto defaultAoMap = createNullAoMap()->createTexture();
 	std::vector<glow::SharedTexture2D> irradianceMaps;
@@ -300,10 +292,6 @@ void Scene::buildRealtimeObjects(const std::string& lightMapPath, const std::vec
 
 	for (std::size_t i = 0; i < primitives.size(); ++i) {
 		auto& primitive = primitives[i];
-        if (!primitiveProbeIndices.empty()) {
-            assert(primitiveProbeIndices.size() == primitives.size());
-            primitive.reflectionProbeIndices = primitiveProbeIndices[i];
-        }
 
 		Mesh mesh;
 		mesh.transform = primitive.transform;
@@ -345,42 +333,6 @@ void Scene::buildRealtimeObjects(const std::string& lightMapPath, const std::vec
 			ab->bind().setData(primitive.lightMapTexCoords);
 			abs.push_back(ab);
 		}
-		/*
-		if (!primitive.reflectionProbeIndices.empty()) {
-			std::vector<glm::vec4> probeIndices0;
-			std::vector<glm::vec4> probeIndices1;
-			probeIndices0.reserve(primitive.reflectionProbeIndices.size() / 2);
-			probeIndices1.reserve(primitive.reflectionProbeIndices.size() / 2);
-			for (std::size_t i = 0; i < primitive.reflectionProbeIndices.size(); i += 8) {
-				glm::vec4 indices0(
-					static_cast<float>(primitive.reflectionProbeIndices[i]),
-					static_cast<float>(primitive.reflectionProbeIndices[i + 1]), 
-					static_cast<float>(primitive.reflectionProbeIndices[i + 2]), 
-					static_cast<float>(primitive.reflectionProbeIndices[i + 3]));
-				glm::vec4 indices1(
-					static_cast<float>(primitive.reflectionProbeIndices[i + 4]),
-					static_cast<float>(primitive.reflectionProbeIndices[i + 5]),
-					static_cast<float>(primitive.reflectionProbeIndices[i + 6]),
-					static_cast<float>(primitive.reflectionProbeIndices[i + 7]));
-
-				probeIndices0.push_back(indices0);
-				probeIndices1.push_back(indices1);
-			}
-
-			{
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec4>("aReflectionProbeIndices0");
-				ab->bind().setData(probeIndices0);
-				abs.push_back(ab);
-			}
-
-			{
-				auto ab = glow::ArrayBuffer::create();
-				ab->defineAttribute<glm::vec4>("aReflectionProbeIndices1");
-				ab->bind().setData(probeIndices1);
-				abs.push_back(ab);
-			}
-		}*/
 
 		auto eab = glow::ElementArrayBuffer::create(primitive.indices);
 		mesh.vao = glow::VertexArray::create(abs, eab, primitive.mode);

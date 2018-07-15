@@ -85,16 +85,15 @@ void BakedGIApp::init() {
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
     reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
-    reflProbeBaker->generateEmptyProbeGrid(scene, { 3, 3, 3 });
-	scene.buildRealtimeObjects(lmPath, reflProbeBaker->computePrimitiveProbeIndices(scene));
+    reflProbeBaker->generateEmptyProbeGrid(scene, { 4, 3, 4 });
+	scene.buildRealtimeObjects(lmPath);
     
     //pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);
     //pipeline->setDebugReflProbeGridEnabled(true);
     
-	pipeline->setProbeGridDimensions(reflProbeBaker->getProbeGridDimensions());
-	pipeline->setProbeVoxelSize(reflProbeBaker->getProbeVoxelSize());
+	pipeline->setProbeVisibilityGridScale(reflProbeBaker->getVisibilityGridScale());
+	pipeline->setProbeVisibilityGrid(reflProbeBaker->getProbeVisibilityGrid());
     pipeline->setReflectionProbes(reflProbeBaker->getReflectionProbes());
-	pipeline->setProbeVisibility(reflProbeBaker->getProbeVisibility());
 
 	int bounces = 3;
 	for (int i = 0; i < bounces; ++i) {
@@ -124,6 +123,8 @@ void BakedGIApp::init() {
 	TwAddButton(tweakbar(), "Make Debug Probe", makeDebugProbe, nullptr, "group=probes");
 	TwAddVarRW(tweakbar(), "Probe Mip Level", TW_TYPE_INT32, &debugEnvMapMipLevel, "group=probes min=0");
 	TwAddVarRW(tweakbar(), "Show Env Probes", TW_TYPE_BOOLCPP, &showDebugEnvProbes, "group=probes");
+	TwAddVarRW(tweakbar(), "Show Debug Probe Grid", TW_TYPE_BOOLCPP, &showProbeGrid, "group=probes");
+	TwAddVarRW(tweakbar(), "Show Debug Probe Vis Grid", TW_TYPE_BOOLCPP, &showProbeVisGrid, "group=probes");
 	TwAddVarRW(tweakbar(), "Use IBL", TW_TYPE_BOOLCPP, &useIbl, "group=probes");
 
 	// For setting debug probes
@@ -157,6 +158,8 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setExposureAdjustment(exposureAdjustment);
 	pipeline->setDebugEnvMapMipLevel(debugEnvMapMipLevel);
 	pipeline->setDebugReflProbeGridEnabled(showDebugEnvProbes);
+	pipeline->setShowDebugProbeVisGrid(showProbeVisGrid);
+	pipeline->setShowDebugProbeGrid(showProbeGrid);
 	scene.render(*pipeline);
 }
 

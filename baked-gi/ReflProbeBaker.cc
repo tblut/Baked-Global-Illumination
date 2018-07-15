@@ -43,7 +43,34 @@ namespace {
 		return triBoxOverlap(boxcenter, boxhalfsize, triverts) == 1;
 	}
 
+	// See: https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+	bool testRayTriangle(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 triA, glm::vec3 triB, glm::vec3 triC) {
+		const float EPSILON = 0.0000001f;
+		auto edge1 = triB - triA;
+		auto edge2 = triC - triA;
+		auto h = glm::cross(rayDir, edge2);
+		auto a = glm::dot(edge1, h);
+		if (a > -EPSILON && a < EPSILON) {
+			return false;
+		}
+		auto f = 1.0f / a;
+		auto s = rayOrigin - triA;
+		auto u = f * glm::dot(s, h);
+		if (u < 0.0f || u > 1.0f) {
+			return false;
+		}
+		auto q = glm::cross(s, edge1);
+		auto v = f * glm::dot(rayDir, q);
+		if (v < 0.0 || u + v > 1.0) {
+			return false;
+		}
+		// At this stage we can compute t to find out where the intersection point is on the line.
+		float t = f * glm::dot(edge2, q);
+		return t > EPSILON;
+	}
+
 	bool isPointInsidePrimitve(const Primitive& primitive, glm::vec3 point) {
+		int intersectionCount = 0;
 		for (std::size_t i = 0; i < primitive.indices.size(); i += 3) {
 			glm::vec3 A = primitive.positions[primitive.indices[i]];
 			glm::vec3 B = primitive.positions[primitive.indices[i + 1]];
@@ -53,30 +80,31 @@ namespace {
 			B = primitive.transform * glm::vec4(B, 1.0f);
 			C = primitive.transform * glm::vec4(C, 1.0f);
 
-			glm::vec3 v0 = B - A;
-			glm::vec3 v1 = C - A;
-			glm::vec3 N = glm::normalize(glm::cross(v0, v1));
-			glm::vec3 triCenter = (v0 + v1) * 0.5f;
-
-			if (glm::dot(N, point - triCenter) > 0.0f) {
-				return false;
+			if (testRayTriangle(point, glm::vec3(1.0f, 0.0f, 0.0f), A, B, C)) {
+				intersectionCount++;
 			}
 		}
 
-		return true;
+		return intersectionCount % 2 == 1;
 	}
 
 	bool isBoxInsidePrimitve(const Primitive& primitive, glm::vec3 aabbMin, glm::vec3 aabbMax) {
-		return isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, 0, 0))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, 0, 0))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, aabbMax.y, 0))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, 0, aabbMax.z))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, aabbMax.y, 0))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, 0, aabbMax.z))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, aabbMax.y, aabbMax.z))
-			&& isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, aabbMax.y, aabbMax.z));
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, 0, 0))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, 0, 0))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, aabbMax.y, 0))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, 0, aabbMax.z))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, aabbMax.y, 0))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, 0, aabbMax.z))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(0, aabbMax.y, aabbMax.z))) return false;
+		if (!isPointInsidePrimitve(primitive, aabbMin + glm::vec3(aabbMax.x, aabbMax.y, aabbMax.z))) return false;
+		return true;
 	}
-    
+
+	float signedDistancePointTriangle(glm::vec3 point, glm::vec3 triA, glm::vec3 triB, glm::vec3 triC) {
+		auto triNormal = glm::normalize(glm::cross(triB - triA, triC - triA));
+		return glm::dot(triNormal, point - triA);
+	}
+
     std::random_device randDevice;
 	std::default_random_engine randEngine(randDevice());
 	std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
@@ -85,7 +113,7 @@ namespace {
         float x = uniformDist(randEngine) * (boxMax.x - boxMin.x);
         float y = uniformDist(randEngine) * (boxMax.y - boxMin.y);
         float z = uniformDist(randEngine) * (boxMax.z - boxMin.z);
-        return glm::vec3(x, y, z);
+        return boxMin + glm::vec3(x, y, z);
     }
     
     glm::vec3 sampleSphereUniform(glm::vec3 center, float radius) {
@@ -96,6 +124,49 @@ namespace {
         float z = glm::cos(phi);
         return center + glm::vec3(x, y, z) * radius;
     }
+
+	glm::vec3 sampleTriangleUniform(glm::vec3 triA, glm::vec3 triB, glm::vec3 triC) {
+		float u = uniformDist(randEngine);
+		float v = uniformDist(randEngine);
+
+		if (u + v > 1.0f) {
+			u = 1.0f - u;
+			v = 1.0f - v;
+		}
+
+		return u * triA + v * triB + (1.0f - u - v) * triC;
+	}
+
+	void makeCoordinateSystem(const glm::vec3& normal, glm::vec3& xAxis, glm::vec3& yAxis) {
+		xAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+		if (std::abs(1.0f - normal.x) < 1.0e-8f) {
+			xAxis = glm::vec3(0.0f, 0.0f, -1.0f);
+		}
+		else if (std::abs(1.0f + normal.x) < 1.0e-8f) {
+			xAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+		}
+
+		yAxis = glm::normalize(glm::cross(normal, xAxis));
+		xAxis = glm::normalize(glm::cross(yAxis, normal));
+	}
+
+	glm::vec3 sampleCosineHemisphere(const glm::vec3& normal) {
+		float u1 = uniformDist(randEngine);
+		float u2 = uniformDist(randEngine);
+
+		float r = std::sqrt(u1);
+		float phi = 2.0f * glm::pi<float>() * u2;
+
+		float x = r * std::sin(phi);
+		float y = r * std::cos(phi);
+		float z = std::sqrt(1.0f - x * x - y * y);
+
+		glm::vec3 xAxis;
+		glm::vec3 yAxis;
+		makeCoordinateSystem(normal, xAxis, yAxis);
+
+		return glm::normalize(x * xAxis + y * yAxis + z * normal);
+	}
 }
 
 ReflProbeBaker::ReflProbeBaker(RenderPipeline& pipeline, const PathTracer& pathTracer)
@@ -105,61 +176,82 @@ ReflProbeBaker::ReflProbeBaker(RenderPipeline& pipeline, const PathTracer& pathT
 
 void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridDim) {
 	// Compute voxel grid
+	glm::vec3 gridMin, gridMax;
     scene.getBoundingBox(gridMin, gridMax);
-    gridMin.y += 0.5f; // Make sure no probes are generated "on the ground"
+	gridMin -= glm::vec3(0.1f);
+	gridMax -= glm::vec3(0.1f);
+    //gridMin.y += 0.5f; // Make sure no probes are generated "on the ground"
     gridMax.y += 2.0f; // Make sure some reflections above the scene are captured
-    
-    this->voxelSize = (gridMax - gridMin) / glm::vec3(gridDim);
-    this->gridDimensions = gridDim;
-    
-    // Determine voxel types
-    voxelTypes.resize(gridDim.x * gridDim.y * gridDim.z, VoxelType::Empty);
-    forEachVoxel([&](int x, int y, int z) {
-        voxelTypes[getVoxelIndex({x, y, z})] = determineVoxelType(scene.getPrimitives(), getVoxelCenterWS({x, y, z}));
-    });
+
+	// Determine which fine grained voxels contain a triangle.
+	// The ones that do are considered solid. This information
+	// is then used later on to determine where in the more coarse grid
+	// probes should be placed.
+	fineVoxelGrid.reset(new VoxelGrid<VoxelType>(gridMin, gridMax, gridDim * fineGridScale));
+	fineVoxelGrid->fill(VoxelType::Empty);
+	fineVoxelGrid->forEachVoxel([&](int x, int y, int z) {
+		auto type = determineFineVoxelType(scene.getPrimitives(), { x, y, z });
+		fineVoxelGrid->setVoxel({ x, y, z }, type);
+	});
+
+    // Based on the previous step determine the type of each coarse voxel
+	coarseVoxelGrid.reset(new VoxelGrid<VoxelType>(gridMin, gridMax, gridDim));
+	coarseVoxelGrid->fill(VoxelType::Empty);
+	coarseVoxelGrid->forEachVoxel([&](int x, int y, int z) {
+		auto type = determineCoarseVoxelType(scene.getPrimitives(), { x, y, z });
+		coarseVoxelGrid->setVoxel({ x, y, z }, type);
+	});
     
     // Generate probe for empty voxel
 	int layer = 0;
-    forEachVoxel([&](int x, int y, int z) {
-        int voxelIndex = getVoxelIndex({x, y, z});
-        if (voxelTypes[voxelIndex] == VoxelType::Empty) {
-            ReflectionProbe probe;
-            probe.position = getVoxelCenterWS({x, y, z});
-            //probe.aabbMin = probe.position - voxelSize * 0.5f; // TODO: Compute correct bounds
-            //probe.aabbMax = probe.position + voxelSize * 0.5f; // TODO: Compute correct bounds
+	coarseVoxelGrid->forEachVoxel([&](int x, int y, int z) {
+		if (coarseVoxelGrid->getVoxel({ x, y, z }) != VoxelType::Solid) {
+			ReflectionProbe probe;
+			probe.position = coarseVoxelGrid->getVoxelCenter({ x, y, z });
 			probe.layer = layer;
 			computeProbeAABB(probe.position, probe.aabbMin, probe.aabbMax);
-            probes.push_back(probe);
+			probes.push_back(probe);
 			layer++;
-        }
-    });
+		}
+	});
+
+	// Compute visibility grid
+	glm::ivec3 visGridDim = gridDim * fineGridScale;
+	probeVisibilityGrid.reset(new VoxelGrid<glm::ivec3>(gridMin, gridMax, visGridDim));
+	probeVisibilityGrid->fill(glm::ivec3(-1));
 
 	// Generate the visibility information for each surface voxel
-	probeVisibility.resize(gridDim.x * gridDim.y * gridDim.z, glm::ivec3(-1));
-	forEachVoxel([&](int x, int y, int z) {
-		int voxelIndex = getVoxelIndex({ x, y, z });
-		if (voxelTypes[voxelIndex] == VoxelType::Surface) {
-			
+	probeVisibilityGrid->forEachVoxel([&](int x, int y, int z) {
+		glm::ivec3 typeCoord = glm::ivec3(x, y, z) / fineGridScale;
+		if (coarseVoxelGrid->getVoxel(typeCoord) != VoxelType::Empty) {
 			std::vector<int> probeVisibilityCounts(probes.size(), 0);
 
-			int numSamples = 1024;
+			int numSamples = 64;
 			for (int sample = 0; sample < numSamples; ++sample) {
-				glm::vec3 samplePoint = getValidSampleInVoxel({ x, y, z }, scene);
-				glm::vec3 sampleDir;
+				glm::vec3 samplePoint, triangleNormal;
+				getValidSampleInVoxel({ x, y, z }, scene, samplePoint, triangleNormal);
+				
+				glm::vec3 reflectionDir = sampleCosineHemisphere(triangleNormal);
 				glm::vec3 intersectionNormal;
-				float tfar = -1.0f;
-				while (tfar < 0.0f) {
-					sampleDir = sampleSphereUniform(glm::vec3(0.0f), 1.0f);
-					tfar = pathTracer->testIntersection(samplePoint, sampleDir, intersectionNormal);
+				float tfar = pathTracer->testIntersection(samplePoint, reflectionDir, intersectionNormal);
+				if (tfar < 0.0f) {
+					for (std::size_t probeIndex = 0; probeIndex < probes.size(); ++probeIndex) {
+						// Test if the probe can see the same direction
+						if (pathTracer->testOcclusionDist(probes[probeIndex].position, reflectionDir) < 0.0f) {
+							probeVisibilityCounts[probeIndex]++;
+						}
+					}
 				}
-				glm::vec3 intersection = samplePoint + sampleDir * tfar;
-				glm::vec3 reflectionVector = glm::reflect(sampleDir, intersectionNormal);
+				else {
+					glm::vec3 intersection = samplePoint + reflectionDir * tfar;
+					glm::vec3 reflectionVector = glm::reflect(reflectionDir, intersectionNormal);
 
-				for (std::size_t probeIndex = 0; probeIndex < probes.size(); ++probeIndex) {
-					glm::vec3 toProbe = probes[probeIndex].position - intersection;
-					float distToProbe = glm::length(toProbe);
-					if (pathTracer->testOcclusionDist(intersection, toProbe) >= distToProbe) {
-						probeVisibilityCounts[probeIndex]++;
+					for (std::size_t probeIndex = 0; probeIndex < probes.size(); ++probeIndex) {
+						glm::vec3 toProbe = probes[probeIndex].position - intersection;
+						float distToProbe = glm::length(toProbe);
+						if (pathTracer->testOcclusionDist(intersection, toProbe) >= distToProbe) {
+							probeVisibilityCounts[probeIndex]++;
+						}
 					}
 				}
 			}
@@ -168,153 +260,41 @@ void ReflProbeBaker::generateEmptyProbeGrid(const Scene& scene, glm::ivec3 gridD
 			std::iota(probeIndices.begin(), probeIndices.end(), 0);
 			std::sort(probeIndices.begin(), probeIndices.end(), [&](int a, int b) {
 				if (probeVisibilityCounts[a] == probeVisibilityCounts[b]) {
-					return glm::distance2(probes[a].position, getVoxelCenterWS({ x, y, z }))
-						< glm::distance2(probes[b].position, getVoxelCenterWS({ x, y, z }));
+					return glm::distance2(probes[a].position, probeVisibilityGrid->getVoxelCenter({ x, y, z }))
+						< glm::distance2(probes[b].position, probeVisibilityGrid->getVoxelCenter({ x, y, z }));
 				}
 
 				return probeVisibilityCounts[a] > probeVisibilityCounts[b];
 			});
 
 			glow::info() << probeIndices[0] << "  " << probeIndices[1] << "  " << probeIndices[2];
-
-			probeVisibility[getVoxelIndex({ x, y, z })] = glm::ivec3(probeIndices[0], probeIndices[1], probeIndices[2]);
+			
+			probeVisibilityGrid->setVoxel({ x, y, z }, glm::ivec3(probeIndices[0], probeIndices[1], probeIndices[2]));
 		}
 	});
-
-	/*
-	// Compute voxel grid
-	scene.getBoundingBox(gridMin, gridMax);
-	
-	voxelSize = (gridMax - gridMin) / glm::vec3(gridDim);
-	gridMin.x -= voxelSize.x / 4.0f;
-	gridMin.y += 0.5f;
-	gridMin.z -= voxelSize.z / 4.0f;
-	gridMax += voxelSize / 4.0f;
-	gridMax.y += 0.5f;
-	voxelSize = (gridMax - gridMin) / glm::vec3(gridDim);
-	gridDimensions = gridDim;
-
-	// Generate env maps for empty and surface voxels
-	int layer = 0;
-	for (int z = 0; z <= gridDimensions.z; ++z) {
-		for (int y = 0; y <= gridDimensions.y; ++y) {
-			for (int x = 0; x <= gridDimensions.x; ++x) {
-				ReflectionProbe probe;
-				probe.position = gridMin + glm::vec3(x, y, z) * voxelSize;
-				probe.aabbMin = probe.position - voxelSize * 0.5f; // TODO: Compute correct bounds
-				probe.aabbMax = probe.position + voxelSize * 0.5f; // TODO: Compute correct bounds
-				probe.layer = layer;
-				probes.push_back(probe);
-				layer++;
-			}
-		}
-	}*/
 }
 
-std::vector<std::vector<unsigned int>> ReflProbeBaker::computePrimitiveProbeIndices(const Scene& scene) {
-    std::vector<std::vector<unsigned int>> primitiveProbeIndices;
-    
-	/*
-    // Find K closest probes vor each vertex
-    for (const auto& prim : scene.getPrimitives()) {
-        std::vector<glm::uvec4> probeIndices;
-        for (auto vertex : prim.positions) {
-            glm::vec3 vertexWS = prim.transform * glm::vec4(vertex, 1.0f);
-            
-            std::vector<int> indices(probes.size());
-            std::iota(indices.begin(), indices.end(), 0);
-            
-            std::vector<float> distances(probes.size());
-            for (std::size_t i = 0; i < probes.size(); ++i) {
-                distances[i] = glm::distance2(probes[i].position, vertexWS);
-            }
-            
-            std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-                return distances[a] < distances[b];
-            });
-            
-            probeIndices.push_back({ indices[0], indices[1], indices[2], indices[4] });
-        }
-        
-        primitiveProbeIndices.push_back(probeIndices);
-    }*/
-
-	for (const auto& prim : scene.getPrimitives()) {
-		std::vector<unsigned int> probeIndices;
-		for (auto vertex : prim.positions) {
-			glm::vec3 vertexWS = prim.transform * glm::vec4(vertex, 1.0f);
-			glm::ivec3 voxelCoord(-1);
-			for (int z = 0; z < gridDimensions.z; ++z) {
-				for (int y = 0; y < gridDimensions.y; ++y) {
-					for (int x = 0; x < gridDimensions.x; ++x) {
-						glm::vec3 voxelMin = gridMin + glm::vec3(x, y, z) * voxelSize;
-						glm::vec3 voxelMax = voxelMin + voxelSize;
-
-						if (isPointInsideBox(vertexWS, voxelMin, voxelMax)) {
-							voxelCoord = { x, y, z };
-							break;
-						}
-					}
-
-					if (voxelCoord.x >= 0) {
-						break;
-					}
-				}
-
-				if (voxelCoord.x >= 0) {
-					break;
-				}
-			}
-
-			int probeIndex000 = getVoxelIndex(voxelCoord + glm::ivec3(0, 0, 0));
-			int probeIndex100 = getVoxelIndex(voxelCoord + glm::ivec3(1, 0, 0));
-			int probeIndex010 = getVoxelIndex(voxelCoord + glm::ivec3(0, 1, 0));
-			int probeIndex001 = getVoxelIndex(voxelCoord + glm::ivec3(0, 0, 1));
-			int probeIndex110 = getVoxelIndex(voxelCoord + glm::ivec3(1, 1, 0));
-			int probeIndex101 = getVoxelIndex(voxelCoord + glm::ivec3(1, 0, 1));
-			int probeIndex011 = getVoxelIndex(voxelCoord + glm::ivec3(0, 1, 1));
-			int probeIndex111 = getVoxelIndex(voxelCoord + glm::ivec3(1, 1, 1));
-			
-			probeIndices.push_back(probes[probeIndex000].layer);
-			probeIndices.push_back(probes[probeIndex100].layer);
-			probeIndices.push_back(probes[probeIndex010].layer);
-			probeIndices.push_back(probes[probeIndex001].layer);
-			probeIndices.push_back(probes[probeIndex110].layer);
-			probeIndices.push_back(probes[probeIndex101].layer);
-			probeIndices.push_back(probes[probeIndex011].layer);
-			probeIndices.push_back(probes[probeIndex111].layer);
-		}
-
-		primitiveProbeIndices.push_back(probeIndices);
-	}
-    
-    return primitiveProbeIndices;
-}
-
-std::vector<ReflectionProbe>& ReflProbeBaker::getReflectionProbes() {
+const std::vector<ReflectionProbe>& ReflProbeBaker::getReflectionProbes() const {
     return probes;
 }
 
-glm::vec3 ReflProbeBaker::getProbeVoxelSize() const {
-	return voxelSize;
+const VoxelGrid<glm::ivec3>& ReflProbeBaker::getProbeVisibilityGrid() const {
+	return *probeVisibilityGrid;
 }
 
-glm::ivec3 ReflProbeBaker::getProbeGridDimensions() const {
-	return gridDimensions;
+int ReflProbeBaker::getVisibilityGridScale() const {
+	return fineGridScale;
 }
 
-std::vector<glm::ivec3>& ReflProbeBaker::getProbeVisibility() {
-	return probeVisibility;
-}
-
-ReflProbeBaker::VoxelType ReflProbeBaker::determineVoxelType(const std::vector<Primitive>& primitives, glm::vec3 voxelPos) const {
-    glm::vec3 voxelMin = voxelPos;
-    glm::vec3 voxelMax = voxelMin + voxelSize;
+ReflProbeBaker::VoxelType ReflProbeBaker::determineFineVoxelType(const std::vector<Primitive>& primitives, glm::ivec3 coord) const {
+    glm::vec3 voxelMin = fineVoxelGrid->getVoxelMin(coord);
+    glm::vec3 voxelMax = fineVoxelGrid->getVoxelMax(coord);
+	glm::vec3 voxelCenter = fineVoxelGrid->getVoxelCenter(coord);
     
     VoxelType type = VoxelType::Empty;
 	for (const auto& prim : primitives) {
 		if (isBoxInsidePrimitve(prim, voxelMin, voxelMax)) {
-			return VoxelType::Full;
+			return VoxelType::Solid;
 		}
 		
 		// Check for half intersection
@@ -328,72 +308,70 @@ ReflProbeBaker::VoxelType ReflProbeBaker::determineVoxelType(const std::vector<P
 			C = prim.transform * glm::vec4(C, 1.0f);
 
 			if (testTriangleAABB(A, B, C, voxelMin, voxelMax)) {
-				return VoxelType::Surface;
+				return VoxelType::Solid;
 			}
-			/*
-			glm::vec3 v0 = B - A;
-			glm::vec3 v1 = C - A;
-			glm::vec3 N = glm::normalize(glm::cross(v0, v1));
-
-			glm::vec3 triCenter = (v0 + v1) * 0.5f;
-			glm::vec3 probePos = voxelPos + voxelSize * 0.5f;
-
-			float distToCenter = glm::dot(N, probePos - triCenter);
-			if (distToCenter < 0.0f) {
-				return VoxelType::Full;
-			}
-			else {
-				if (distToCenter < glm::max(voxelSize.x, glm::max(voxelSize.y, voxelSize.z)) * 1) {
-					return VoxelType::Full;
-				}
-				else {
-					type = VoxelType::Surface;
-				}
-			}*/
 		}
 	}
 	
-
-
     return type;
 }
 
-glm::vec3 ReflProbeBaker::getVoxelCenterWS(glm::ivec3 voxelCoord) const {
-    return gridMin + glm::vec3(voxelCoord) * voxelSize + voxelSize * 0.5f;
+ReflProbeBaker::VoxelType ReflProbeBaker::determineCoarseVoxelType(const std::vector<Primitive>& primitives, glm::ivec3 coarseCoord) const {
+	glm::ivec3 fineVoxelCoordStart = coarseCoord * fineGridScale;
+	glm::ivec3 fineVoxelCoordEnd = fineVoxelCoordStart + glm::ivec3(fineGridScale);
+
+	int solidCount = 0;
+	for (int z = fineVoxelCoordStart.z; z < fineVoxelCoordEnd.z; ++z) {
+		for (int y = fineVoxelCoordStart.y; y < fineVoxelCoordEnd.y; ++y) {
+			for (int x = fineVoxelCoordStart.x; x < fineVoxelCoordEnd.x; ++x) {
+				if (fineVoxelGrid->getVoxel({ x, y, z }) == VoxelType::Solid) {
+					solidCount++;
+				}
+			}
+		}
+	}
+
+	VoxelType type;
+	int voxelArea = fineGridScale * fineGridScale * fineGridScale;
+	if (solidCount == 0) {
+		type = VoxelType::Empty;
+	}
+	else if (solidCount < voxelArea / 4) {
+		type = VoxelType::Surface;
+	}
+	else {
+		type = VoxelType::Solid;
+	}
+	
+	return type;
 }
 
-std::size_t ReflProbeBaker::getVoxelIndex(glm::ivec3 voxelCoord) const {
-    return voxelCoord.x + voxelCoord.y * gridDimensions.x + voxelCoord.z * gridDimensions.x * gridDimensions.y;
-}
+void ReflProbeBaker::getValidSampleInVoxel(glm::ivec3 coord, const Scene& scene, glm::vec3& samplePoint, glm::vec3& triNormal) const {
+	glm::vec3 voxelMin = probeVisibilityGrid->getVoxelMin(coord);
+	glm::vec3 voxelMax = probeVisibilityGrid->getVoxelMax(coord);
+	int voxelIndex = probeVisibilityGrid->getVoxelIndex(coord);
 
-void ReflProbeBaker::forEachVoxel(const std::function<void(int, int, int)>& body) {
-    for (int z = 0; z < gridDimensions.z; ++z) {
-        for (int y = 0; y < gridDimensions.y; ++y) {
-            for (int x = 0; x < gridDimensions.x; ++x) {
-                body(x, y, z);
-            }
-        } 
-    }
-}
+	// TODO: Sample random point in voxel box and project the point onto the plane defined by the triangle
 
-glm::vec3 ReflProbeBaker::getValidSampleInVoxel(glm::ivec3 coord, const Scene& scene) const {
-	glm::vec3 voxelMin = gridMin + glm::vec3(coord) * voxelSize;
-	glm::vec3 voxelMax = voxelMin + voxelSize;
-
-	bool isInMesh = true;
-	glm::vec3 samplePoint;
-	while (isInMesh) {
-		isInMesh = false;
+	bool isInvalid = true;
+	while (isInvalid) {
 		samplePoint = sampleBoxUniform(voxelMin, voxelMax);
-		for (const auto& prim : scene.getPrimitives()) {
-			if (isPointInsidePrimitve(prim, samplePoint)) {
-				isInMesh = true;
+		break;
+		isInvalid = false;
+		for (std::size_t i = 0; i < voxelTriangles[voxelIndex].size(); i += 3) {
+			glm::vec3 triA = voxelTriangles[voxelIndex][i];
+			glm::vec3 triB = voxelTriangles[voxelIndex][i + 1];
+			glm::vec3 triC = voxelTriangles[voxelIndex][i + 2];
+
+			triNormal = glm::normalize(glm::cross(triB - triA, triC - triA));
+
+			float signedDistance = glm::dot(triNormal, samplePoint - triA);
+			if (signedDistance < 0.0f) {
+				isInvalid = true;
 				break;
 			}
 		}
 	}
-	
-	return samplePoint;
 }
 
 void ReflProbeBaker::computeProbeAABB(glm::vec3 probePos, glm::vec3& outMin, glm::vec3& outMax) const {
@@ -405,7 +383,6 @@ void ReflProbeBaker::computeProbeAABB(glm::vec3 probePos, glm::vec3& outMin, glm
 
 	float tfarBottom = pathTracer->testOcclusionDist(probePos, glm::vec3(0, -1, 0));
 	outMin.y = tfarBottom < 0.0f ? -std::numeric_limits<float>::max() : probePos.y - tfarBottom;
-	glow::info() << probePos.y;
 
 	float tfarTop = pathTracer->testOcclusionDist(probePos, glm::vec3(0, 1, 0));
 	outMax.y = tfarTop < 0.0f ? std::numeric_limits<float>::max() : probePos.y + tfarTop;

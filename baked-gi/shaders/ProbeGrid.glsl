@@ -1,7 +1,7 @@
 uniform vec3 uProbeGridDimensions;
 uniform vec3 uProbeGridCellSize;
 uniform sampler1DArray uProbePositionTexture;
-uniform sampler1D uProbeVisibilityTexture; // The three probe layers used for the i-th voxel. Dim = w * h * d
+uniform sampler3D uProbeVisibilityTexture; // The three probe layers used for the i-th voxel. Dim = w * h * d
 uniform sampler1DArray uProbeAABBTexture; //layer = probe layer, 0 = min, 1 = max
 
 vec3 getProbeGridCell(vec3 worldPos) {
@@ -29,6 +29,6 @@ vec3 getProbeAABBMax(float layer) {
 }
 
 vec3 getProbeLayersForVoxel(vec3 coord) {
-	float index = coord.x + coord.y * uProbeGridDimensions.x + coord.z * uProbeGridDimensions.x * uProbeGridDimensions.y;
-	return texture(uProbeVisibilityTexture, index).xyz;
+	vec3 texCoord = coord / uProbeGridDimensions;
+	return texture(uProbeVisibilityTexture, texCoord).xyz;
 }

@@ -18,9 +18,7 @@ public:
 	void loadFromGltf(const std::string& path);
 	void render(RenderPipeline& pipeline) const;
 
-    void buildRealtimeObjects(const std::string& lightMapPath = "");
-    void buildRealtimeObjects(const std::vector<std::vector<unsigned int>>& primitiveProbeIndices);
-	void buildRealtimeObjects(const std::string& lightMapPath, const std::vector<std::vector<unsigned int>>& primitiveProbeIndices);
+	void buildRealtimeObjects(const std::string& lightMapPath);
 	void buildPathTracerScene(PathTracer& pathTracer) const;
 
 	DirectionalLight& getSun();

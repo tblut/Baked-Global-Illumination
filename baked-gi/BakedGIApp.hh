@@ -47,4 +47,6 @@ private:
 	int debugEnvMapMipLevel = 0;
 	bool showDebugEnvProbes = false;
 	bool useIbl = true;
+	bool showProbeGrid = false;
+	bool showProbeVisGrid = false;
 };

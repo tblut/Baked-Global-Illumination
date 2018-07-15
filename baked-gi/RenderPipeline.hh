@@ -3,6 +3,7 @@
 #include "Mesh.hh"
 #include "DirectionalLight.hh"
 #include "ReflectionProbe.hh"
+#include "VoxelGrid.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -26,9 +27,8 @@ public:
 	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
 	void renderReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, const std::vector<Mesh>& meshes);
 
-	void setProbeGridDimensions(const glm::ivec3& dim);
-	void setProbeVoxelSize(const glm::vec3& size);
-	void setProbeVisibility(const std::vector<glm::ivec3>& visiblity);
+	void setProbeVisibilityGridScale(int scale);
+	void setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid);
     void setReflectionProbes(const std::vector<ReflectionProbe>& probes);
 	void setAmbientColor(const glm::vec3& color);
 	void attachCamera(const glow::camera::GenericCamera& camera);
@@ -43,7 +43,9 @@ public:
     
     void makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth);
     void setDebugReflProbeGridEnabled(bool enabled);
-    
+	void setShowDebugProbeVisGrid(bool show);
+	void setShowDebugProbeGrid(bool show);
+
 	void setUseIrradianceMap(bool use);
 	void setUseAOMap(bool use);
 	void setUseIBL(bool use);
@@ -65,6 +67,7 @@ private:
 		const glow::SharedTextureCubeMapArray& targetArray) const;
 	glow::SharedTextureCubeMap makeBlackCubeMap(int size) const;
 	glow::SharedTextureCubeMapArray makeDefaultReflectionProbes(int size) const;
+	void renderDebugGrid(glm::vec3 min, glm::vec3 max, glm::vec3 voxelSize, glm::ivec3 gridDimensions, const glm::vec3& color) const;
 
 	glow::SharedTextureRectangle hdrColorBuffer;
 	glow::SharedTextureRectangle brightnessBuffer;
@@ -96,10 +99,12 @@ private:
 	glow::SharedProgram precalcEnvBrdfLutShader;
 	glow::SharedProgram precalcEnvMapShader;
 	glow::SharedProgram precalcEnvMapProbeShader;
+	glow::SharedProgram lineShader;
 
 	glow::SharedVertexArray vaoQuad;
 	glow::SharedVertexArray vaoCube;
 	glow::SharedVertexArray vaoSphere;
+	glow::SharedVertexArray vaoLine;
 
 	glow::SharedTexture2D topRightDebugTexture;
 	glow::SharedTexture2D bottomRightDebugTexture;
@@ -108,7 +113,7 @@ private:
 	glow::SharedTexture2D envLutGGX;
 	glow::SharedTextureCubeMap defaultEnvMapGGX;
 	glow::SharedTextureCubeMapArray reflectionProbeArray;
-	glow::SharedTexture1D probeVisibilityTexture;
+	glow::SharedTexture3D probeVisibilityTexture;
 	glow::SharedTexture1DArray probeAABBTexture;
 	glow::SharedTexture1DArray probePositionTexture;
 
@@ -124,6 +129,8 @@ private:
 	float exposureAdjustment = 1.0f;
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
+	bool showDebugProbeVisGrid = false;
+	bool showDebugProbeGrid = false;
     
     std::vector<ReflectionProbe> reflectionProbes;
     bool isDebugProbeGridEnabled = false;
@@ -133,6 +140,9 @@ private:
     glm::vec3 probePos; // flb, frb, frt, flt, blb, brb, brt, blt
     glm::vec3 probeAabbMin;
     glm::vec3 probeAabbMax;
-	glm::vec3 probeVoxelSize;
-	glm::ivec3 probeGridDimensions;
+	glm::vec3 probeVisibilityMin;
+	glm::vec3 probeVisibilityMax;
+	glm::vec3 probeVisibilityVoxelSize;
+	glm::ivec3 probeVisibilityGridDimensions;
+	int probeVisibilityGridScale;
 };

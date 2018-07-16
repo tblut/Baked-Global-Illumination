@@ -74,7 +74,7 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	vec3 probePos1 = getProbePositionForLayer(probeLayers.y);
 	vec3 probePos2 = getProbePositionForLayer(probeLayers.z);
 
-	vec3 boxSize = vec3(20);
+	vec3 boxSize = vec3(10);
 	vec3 aabbMin0 = probePos0 - boxSize;//getProbeAABBMin(probeLayers.x);
 	vec3 aabbMax0 = probePos0 + boxSize;//getProbeAABBMax(probeLayers.x);
 	vec3 aabbMin1 = probePos1 - boxSize;//getProbeAABBMin(probeLayers.y);
@@ -130,6 +130,9 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	}
 
 	//envcolor = probeLayers;
+	
+	//vec3 blendFactors = getBlendMapFactors3(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
+    //envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
 
     return envcolor * (specularColor * envbrdf.x + envbrdf.y);
 }

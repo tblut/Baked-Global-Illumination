@@ -85,7 +85,7 @@ void BakedGIApp::init() {
 	debugPathTracer->setBackgroundCubeMap(skybox);
     
     reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
-    reflProbeBaker->generateEmptyProbeGrid(scene, { 4, 3, 4 });
+    reflProbeBaker->generateEmptyProbeGrid(scene, { 2, 2, 2 });
 	scene.buildRealtimeObjects(lmPath);
     
     //pipeline->makeDebugReflProbeGrid(scene, 2, 2, 2);

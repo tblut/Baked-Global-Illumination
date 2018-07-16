@@ -624,8 +624,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 			p.setUniform("uModel", mesh.transform);
 			p.setUniform("uNormalMat", glm::transpose(glm::inverse(glm::mat3(mesh.transform))));
 			p.setUniform("uBaseColor", gammaToLinear(mesh.material.baseColor));
-			p.setUniform("uMetallic", mesh.material.metallic);
-			p.setUniform("uRoughness", mesh.material.roughness);
+			p.setUniform("uMetallic", 1.0f);//mesh.material.metallic);
+			p.setUniform("uRoughness", 0.02f);//mesh.material.roughness);
 			p.setTexture("uTextureIrradiance", mesh.material.lightMap);
 			p.setTexture("uTextureAO", mesh.material.aoMap);
 

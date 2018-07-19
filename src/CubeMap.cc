@@ -6,6 +6,8 @@
 glm::vec3 CubeMap::sample(const glm::vec3& dir) const {
     glm::vec3 absDir = glm::abs(dir);
     if (absDir.x > absDir.y && absDir.x > absDir.z) {
+		if (absDir.x < 1.0e-8 || glm::isnan(absDir.x) || glm::isinf(absDir.x)) glow::info() << absDir.x;
+
         if (dir.x > 0) {
             glm::vec2 uv = (glm::vec2(-dir.z / absDir.x, dir.y / absDir.x) + glm::vec2(1.0f)) * 0.5f;
             return glm::vec3(faces[0]->sample(uv));
@@ -16,6 +18,8 @@ glm::vec3 CubeMap::sample(const glm::vec3& dir) const {
         }
     }
     else if (absDir.y > absDir.x && absDir.y > absDir.z) {
+		if (absDir.y < 1.0e-8 || glm::isnan(absDir.z) || glm::isinf(absDir.z)) glow::info() << absDir.z;
+
         if (dir.y > 0) {
             glm::vec2 uv = (glm::vec2(dir.x / absDir.y, -dir.z / absDir.y) + glm::vec2(1.0f)) * 0.5f;
             return glm::vec3(faces[2]->sample(uv));
@@ -26,6 +30,8 @@ glm::vec3 CubeMap::sample(const glm::vec3& dir) const {
         }
     }
     else if (absDir.z > absDir.x && absDir.z > absDir.y) {
+		if (absDir.z < 1.0e-8 || glm::isnan(absDir.z) || glm::isinf(absDir.z)) glow::info() << absDir.z;
+
         if (dir.z > 0) {
             glm::vec2 uv = (glm::vec2(dir.x / absDir.z, dir.y / absDir.z) + glm::vec2(1.0f)) * 0.5f;
             return glm::vec3(faces[4]->sample(uv));

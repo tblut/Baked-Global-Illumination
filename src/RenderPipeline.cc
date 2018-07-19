@@ -619,9 +619,12 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
-		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
-		p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
-		p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);
+
+		if (reflectionProbeArray) {
+			p.setTexture("uReflectionProbeArray", reflectionProbeArray);
+			p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
+			p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);
+		}
 
 		for (const auto& mesh : texturedMeshes) {
 			p.setUniform("uModel", mesh.transform);

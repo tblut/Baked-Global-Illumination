@@ -143,29 +143,82 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		GLOW_SCOPED(enable, GL_CULL_FACE);
 
 		auto fbo = hdrFbo->bind();
-		auto p = selectedProbeShader->use();
-		p.setUniform("uView", cam.getViewMatrix());
-		p.setUniform("uProj", cam.getProjectionMatrix());
-		p.setUniform("uModel", glm::translate(pos) * glm::scale(glm::vec3(0.25f)));
-		p.setUniform("uColor", glm::vec3(1.0f, 0.0f, 1.0f));
-		p.setUniform("uLightDir", glm::normalize(-light->direction));
-		vaoSphere->bind().draw();
+        {
+            auto p = selectedProbeShader->use();
+            p.setUniform("uView", cam.getViewMatrix());
+            p.setUniform("uProj", cam.getProjectionMatrix());
+            p.setUniform("uModel", glm::translate(pos) * glm::scale(glm::vec3(0.25f)));
+            p.setUniform("uColor", glm::vec3(1.0f, 0.0f, 1.0f));
+            p.setUniform("uLightDir", glm::normalize(-light->direction));
+            vaoSphere->bind().draw();
+        }
+        
+		
+        { // Render the probes influence box
+            GLOW_SCOPED(enable, GL_DEPTH_TEST);
 
-		// Render the probes influence radius
-		GLOW_SCOPED(disable, GL_CULL_FACE);
-		GLOW_SCOPED(polygonMode, GL_FRONT_AND_BACK, GL_LINE);
-	
-		auto vaoBox = glow::geometry::Cube<>(glow::geometry::Cube<>::attributesOf((glow::geometry::CubeVertex*)0), min, max).generate();
+            auto p = lineShader->use();
+            p.setUniform("uColor", glm::vec3(1.0f, 0.0f, 1.0f));
+            p.setUniform("uView", camera->getViewMatrix());
+            p.setUniform("uProj", camera->getProjectionMatrix());
 
-		p.setUniform("uModel", glm::translate(pos));
-		vaoBox->bind().draw();
+            auto vao = vaoLine->bind();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, min.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, min.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, min.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, max.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, min.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, min.y, max.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, max.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, max.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, max.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, max.y, max.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, max.y, min.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, min.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, min.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, min.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, min.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, max.y, max.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(max.x, min.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, min.y, max.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, max.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, max.y, min.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, max.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(min.x, min.y, max.z));
+			vao.draw();
+            
+            p.setUniform("uFrom", pos + glm::vec3(min.x, max.y, max.z));
+			p.setUniform("uTo", pos + glm::vec3(max.x, max.y, max.z));
+			vao.draw();
+        }
 	}
 
 	// Render the probe placement preview
 	if (probePlacementPreviewEnabled) {
 		GLOW_SCOPED(enable, GL_DEPTH_TEST);
 		GLOW_SCOPED(disable, GL_CULL_FACE);
-		GLOW_SCOPED(polygonMode, GL_FRONT_AND_BACK, GL_LINE);
+		//GLOW_SCOPED(polygonMode, GL_FRONT_AND_BACK, GL_LINE);
 
 		auto fbo = hdrFbo->bind();
 		auto p = selectedProbeShader->use();

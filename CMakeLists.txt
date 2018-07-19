@@ -5,10 +5,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-if (NOT MSVC)
-    target_compile_options(GlowApp PRIVATE -std=c++14)
-endif()
-
 file(GLOB SOURCES "src/*.cc" "src/*.hh")
 file(GLOB SHADERS "src/shaders/*.*sh" "src/shaders/*.glsl")
 file(GLOB THIRD_PARTY_SOURCES "src/third-party/*.h" "src/third-party/*.hpp")
@@ -41,6 +37,11 @@ if (OPENMP_FOUND)
 endif()
 
 add_executable(BakedGI ${SOURCES} ${SHADERS} ${THIRD_PARTY_SOURCES})
+
+if (NOT MSVC)
+    target_compile_options(BakedGI PRIVATE -std=c++14)
+endif()
+
 target_link_libraries(BakedGI PUBLIC
 	glow
 	glow-extras

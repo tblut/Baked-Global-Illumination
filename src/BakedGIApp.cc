@@ -50,6 +50,7 @@ void BakedGIApp::init() {
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
     
+    /*
     auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
 	auto skybox = CubeMap::loadFromFiles(
 		pbt + "/posx.jpg",
@@ -58,7 +59,7 @@ void BakedGIApp::init() {
 		pbt + "/negy.jpg",
 		pbt + "/posz.jpg",
 		pbt + "/negz.jpg");
-	debugPathTracer->setBackgroundCubeMap(skybox);
+	debugPathTracer->setBackgroundCubeMap(skybox);*/
     
     reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
     reflProbeBaker->generateEmptyProbeGrid(scene, { 2, 2, 2 });

@@ -49,6 +49,7 @@ void BakedGIApp::init() {
 	debugPathTracer.reset(new DebugPathTracer());
 	debugPathTracer->attachDebugCamera(*getCamera());
 	scene.buildPathTracerScene(*debugPathTracer);
+	scene.buildRealtimeObjects(lmPath);
     
     /*
     auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
@@ -60,20 +61,17 @@ void BakedGIApp::init() {
 		pbt + "/posz.jpg",
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);*/
-    
-    reflProbeBaker.reset(new ReflProbeBaker(*pipeline, *debugPathTracer));
-    reflProbeBaker->generateEmptyProbeGrid(scene, { 2, 2, 2 });
-	scene.buildRealtimeObjects(lmPath);
 
-	//TwAddVarRW(tweakbar(), "Ambient Light", TW_TYPE_COLOR3F, &ambientColor, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.1 step=0.1");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Size", TwDefineEnum("", nullptr, 0), &shadowMapSize,
 		"group=light, enum='64 {64}, 128 {128}, 256 {256}, 512 {512}, 1024 {1024}, 2048 {2048}, 4096 {4096}'");
 	TwAddVarRW(tweakbar(), "Shadow Map Offset", TW_TYPE_FLOAT, &shadowMapOffset, "group=light step=0.0001");
+
 	TwAddVarRW(tweakbar(), "Bloom %", TW_TYPE_FLOAT, &bloomPercentage, "group=postprocess min=0.0 max =1.0 step=0.01");
 	TwAddVarRW(tweakbar(), "Exposure", TW_TYPE_FLOAT, &exposureAdjustment, "group=postprocess min=0.0 step=0.1");
+
 	TwAddButton(tweakbar(), "Debug Trace", debugTrace, &sharedData, "group=pathtrace");
 	TwAddButton(tweakbar(), "Save Trace", saveTrace, &sharedData, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Show Debug Image", TW_TYPE_BOOLCPP, &showDebugImage, "group=pathtrace");
@@ -82,13 +80,13 @@ void BakedGIApp::init() {
 	TwAddVarRW(tweakbar(), "Max Path Depth", TW_TYPE_UINT32, &maxPathDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Depth", TW_TYPE_UINT32, &clampDepth, "group=pathtrace");
 	TwAddVarRW(tweakbar(), "Clamp Radiance", TW_TYPE_FLOAT, &clampRadiance, "group=pathtrace");
+
 	TwAddVarRW(tweakbar(), "Show Lightmap", TW_TYPE_BOOLCPP, &showDebugLightMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Lightmap Index", TW_TYPE_INT32, &lightMapIndex, "group=lightmap min=0 step=1");
 	TwAddVarRW(tweakbar(), "Use Irradiance Map", TW_TYPE_BOOLCPP, &useIrradianceMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Use AO Map", TW_TYPE_BOOLCPP, &useAOMap, "group=lightmap");
 	TwAddVarRW(tweakbar(), "Probe Mip Level", TW_TYPE_INT32, &debugEnvMapMipLevel, "group=probes min=0");
 	TwAddVarRW(tweakbar(), "Show Probes", TW_TYPE_BOOLCPP, &showDebugEnvProbes, "group=probes");
-	TwAddVarRW(tweakbar(), "Show Debug Probe Grid", TW_TYPE_BOOLCPP, &showProbeGrid, "group=probes");
 	TwAddVarRW(tweakbar(), "Show Debug Probe Vis Grid", TW_TYPE_BOOLCPP, &showProbeVisGrid, "group=probes");
 	TwAddVarRW(tweakbar(), "Use IBL", TW_TYPE_BOOLCPP, &useIbl, "group=probes");
 	TwAddVarRW(tweakbar(), "Use Local Probes", TW_TYPE_BOOLCPP, &useLocalProbes, "group=probes");
@@ -175,7 +173,6 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setDebugEnvMapMipLevel(debugEnvMapMipLevel);
 	pipeline->setDebugReflProbeGridEnabled(showDebugEnvProbes);
 	pipeline->setShowDebugProbeVisGrid(showProbeVisGrid);
-	pipeline->setShowDebugProbeGrid(showProbeGrid);
 	pipeline->setCurrentProbeIndex(sharedData.currentProbeIndex);
 	pipeline->setProbePlancementPreview(sharedData.isInProbePlacementMode, getCamera()->getPosition() + getCamera()->getForwardDirection());
 	pipeline->setReflectionProbes(reflectionProbes);

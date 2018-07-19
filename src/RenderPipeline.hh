@@ -27,7 +27,6 @@ public:
 	glow::SharedTextureCubeMap renderEnvironmentMap(const glm::vec3& position, int size, const std::vector<Mesh>& meshes);
 	void bakeReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, int bounces, const std::vector<Mesh>& meshes);
 
-	void setProbeVisibilityGridScale(int scale);
 	void setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid);
     void setReflectionProbes(const std::vector<ReflectionProbe>& probes);
 	void setAmbientColor(const glm::vec3& color);
@@ -41,10 +40,8 @@ public:
 	void setDebugEnvMap(const glow::SharedTextureCubeMap& cubeMap, const glm::vec3& position = glm::vec3(0.0));
 	void setDebugEnvMapMipLevel(int value);
     
-    void makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth);
     void setDebugReflProbeGridEnabled(bool enabled);
 	void setShowDebugProbeVisGrid(bool show);
-	void setShowDebugProbeGrid(bool show);
 	void setCurrentProbeIndex(int index);
 	void setProbePlancementPreview(bool enabled, glm::vec3 position = glm::vec3(0));
 
@@ -54,8 +51,6 @@ public:
 	void setUseLocalProbes(bool use);
 	void setBloomPercentage(float value);
 	void setExposureAdjustment(float value);
-    
-    void setProbes(const glm::vec3& pos, const glm::vec3& halfExtents);
 
 private:
 	void renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const;
@@ -134,21 +129,16 @@ private:
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
 	bool showDebugProbeVisGrid = false;
-	bool showDebugProbeGrid = false;
     
     const std::vector<ReflectionProbe>* reflectionProbes;
     bool isDebugProbeGridEnabled = false;
     std::vector<glow::SharedTextureCubeMap> probeGrid;
     std::vector<glm::vec3> probeGridPositions;
     
-    glm::vec3 probePos; // flb, frb, frt, flt, blb, brb, brt, blt
-    glm::vec3 probeAabbMin;
-    glm::vec3 probeAabbMax;
 	glm::vec3 probeVisibilityMin;
 	glm::vec3 probeVisibilityMax;
 	glm::vec3 probeVisibilityVoxelSize;
 	glm::ivec3 probeVisibilityGridDimensions;
-	int probeVisibilityGridScale;
 
 	int currentProbeIndex = -1;
 	bool probePlacementPreviewEnabled = false;

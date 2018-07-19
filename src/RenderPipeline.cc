@@ -281,11 +281,6 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 			probeVisibilityGridDimensions, { 1.0f, 0.0f, 0.0f });
 	}
 
-	if (showDebugProbeGrid) { // Debug probe voxel grid 
-		renderDebugGrid(probeVisibilityMin, probeVisibilityMax, probeVisibilityVoxelSize * probeVisibilityGridScale,
-			probeVisibilityGridDimensions / probeVisibilityGridScale, { 0.0f, 1.0f, 0.0f });
-	}
-
 	// Debug texture
 	if (topRightDebugTexture || bottomRightDebugTexture) {
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
@@ -469,10 +464,6 @@ void RenderPipeline::bakeReflectionProbes(const std::vector<ReflectionProbe>& pr
 	}
 }
 
-void RenderPipeline::setProbeVisibilityGridScale(int scale) {
-	probeVisibilityGridScale = scale;
-}
-
 void RenderPipeline::setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid) {
 	probeVisibilityGridDimensions = grid.getDimensions();
 	probeVisibilityVoxelSize = grid.getVoxelSize();
@@ -537,39 +528,12 @@ void RenderPipeline::setDebugEnvMapMipLevel(int value) {
 	debugEnvMapMipLevel = value;
 }
 
-void RenderPipeline::makeDebugReflProbeGrid(const Scene& scene, int width, int height, int depth) {
-    glm::vec3 min, max;
-    scene.getBoundingBox(min, max);
-  
-    min.y += 1.0f;
-    max.y += 1.0f;
-    glm::vec3 stepSize = (max - min) / glm::vec3(width, height, depth);
-    
-    min += stepSize * 0.2f;
-    max -= stepSize * 0.2f;
-    stepSize = (max - min) / glm::vec3(width, height, depth);
-    
-    for (int z = 0; z <= depth; ++z) {
-        for (int y = 0; y <= height; ++y) {
-            for (int x = 0; x <= width; ++x) {
-                glm::vec3 pos = min + stepSize * glm::vec3(x, y ,z);
-                probeGrid.push_back(renderEnvironmentMap(pos, 256, scene.getMeshes()));
-                probeGridPositions.push_back(pos);
-            }
-        } 
-    }
-}
-
 void RenderPipeline::setDebugReflProbeGridEnabled(bool enabled) {
     isDebugProbeGridEnabled = enabled;
 }
 
 void RenderPipeline::setShowDebugProbeVisGrid(bool show) {
 	showDebugProbeVisGrid = show;
-}
-
-void RenderPipeline::setShowDebugProbeGrid(bool show) {
-	showDebugProbeGrid = show;
 }
 
 void RenderPipeline::setCurrentProbeIndex(int index) {
@@ -603,28 +567,6 @@ void RenderPipeline::setBloomPercentage(float value) {
 
 void RenderPipeline::setExposureAdjustment(float value) {
 	exposureAdjustment = value;
-}
-
-void RenderPipeline::setProbes(const glm::vec3& pos, const glm::vec3& halfExtents) {
-    probePos = pos;
-    probeAabbMin = probePos - halfExtents;
-    probeAabbMax = probePos + halfExtents;
-    
-    /*
-    probePos[0] = pos + glm::vec3(-halfExtents.x, -halfExtents.y, halfExtents.z);
-    probePos[1] = pos + glm::vec3(halfExtents.x, -halfExtents.y, halfExtents.z);
-    probePos[2] = pos + glm::vec3(halfExtents.x, halfExtents.y, halfExtents.z);
-    probePos[3] = pos + glm::vec3(-halfExtents.x, halfExtents.y, halfExtents.z);
-    probePos[4] = pos + glm::vec3(-halfExtents.x, -halfExtents.y, -halfExtents.z);
-    probePos[5] = pos + glm::vec3(halfExtents.x, -halfExtents.y, -halfExtents.z);
-    probePos[6] = pos + glm::vec3(halfExtents.x, halfExtents.y, -halfExtents.z);
-    probePos[7] = pos + glm::vec3(-halfExtents.x, halfExtents.y, -halfExtents.z);
-    
-    for (int i = 0; i < 8; ++i) {
-        probeAabbMin[i] = probePos[i] - halfExtents;
-        probeAabbMax[i] = probePos[i] + halfExtents;
-    }
-    */
 }
 
 void RenderPipeline::renderSceneToShadowMap(const std::vector<Mesh>& meshes, const glm::mat4& lightMatrix) const {
@@ -718,9 +660,6 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIBL", useIbl);
 		p.setUniform("uUseLocalProbes", reflectionProbeArray ? useLocalProbes : false);
 		p.setUniform("uBloomPercentage", bloomPercentage);
-        p.setUniform("uProbePos", probePos);
-        p.setUniform("uAABBMin", probeAabbMin);
-        p.setUniform("uAABBMax", probeAabbMax);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
 		p.setTexture("uTextureShadow", shadowBuffer);

@@ -4,7 +4,6 @@
 #include "RenderPipeline.hh"
 #include "DebugPathTracer.hh"
 #include "IlluminationBaker.hh"
-#include "ReflProbeBaker.hh"
 
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
@@ -54,7 +53,6 @@ private:
 	std::unique_ptr<RenderPipeline> pipeline;
 	std::unique_ptr<DebugPathTracer> debugPathTracer;
     std::unique_ptr<IlluminationBaker> illuminationBaker;
-    std::unique_ptr<ReflProbeBaker> reflProbeBaker;
 	bool showDebugImage = false;
     float lastDebugTraceScale = -1.0f; // force update on first frame
 	float debugTraceScale = 0.5f;
@@ -74,7 +72,6 @@ private:
 	bool showDebugEnvProbes = false;
 	bool useIbl = true;
 	bool useLocalProbes = true;
-	bool showProbeGrid = false;
 	bool showProbeVisGrid = false;
 
 	std::vector<ReflectionProbe> reflectionProbes;

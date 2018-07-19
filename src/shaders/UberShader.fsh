@@ -25,6 +25,7 @@ uniform float uBloomPercentage;
 uniform bool uUseIrradianceMap;
 uniform bool uUseAOMap;
 uniform bool uUseIBL;
+uniform bool uUseLocalProbes;
 
 uniform vec3 uProbePos;
 uniform vec3 uAABBMin;
@@ -72,8 +73,12 @@ void main() {
 #ifdef IBL
 	if (uUseIBL) {
 		vec3 R = reflect(-V, N);
-		//direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
-		direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
+		if (uUseLocalProbes) {
+			direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
+		}
+		else {
+			direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
+		}
 	}
 #endif
 

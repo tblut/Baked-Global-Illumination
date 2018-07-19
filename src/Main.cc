@@ -7,7 +7,7 @@
 #include <string>
 
 // Format:
-//   baked-gi <path-to-gltf> [path-to-lm]
+//   baked-gi <path-to-gltf> [path-to-lm] [path-to-pd]
 //     OR
 //   baked-gi <path-to-gltf> -bake <output-path> [BAKE_OPTIONS]
 // Options:
@@ -19,6 +19,7 @@
 int main(int argc, char* argv[]) {
 	std::string gltfPath(argv[1]);
 	std::string lmPath;
+	std::string pdPath;
 	std::string outputPath;
 	int aoWidth = 0, aoHeight = 0, aoSpp = 0;
 	int irrWidth = 0, irrHeight = 0, irrSpp = 0;
@@ -59,6 +60,10 @@ int main(int argc, char* argv[]) {
 		}
 		else {
 			lmPath = arg;
+
+			if (argc >= 4) {
+				pdPath = std::string(argv[3]);
+			}
 		}
 	}
 
@@ -91,7 +96,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 	else {
-		BakedGIApp sample(gltfPath, lmPath);
+		BakedGIApp sample(gltfPath, lmPath, pdPath);
 		return sample.run(argc, argv); // automatically sets up GLOW and GLFW and everything
 	}
 }

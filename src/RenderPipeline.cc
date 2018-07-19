@@ -38,6 +38,7 @@ RenderPipeline::RenderPipeline() {
 	precalcEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMap.csh");
 	precalcEnvMapProbeShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMapProbe.csh");
 	lineShader = glow::Program::createFromFile(workDir + "/shaders/Line");
+	selectedProbeShader = glow::Program::createFromFile(workDir + "/shaders/SelectedProbe");
 
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
@@ -80,9 +81,9 @@ RenderPipeline::RenderPipeline() {
 		glow::ColorSpace::sRGB));
 
 	this->envLutGGX = computeEnvLutGGX(64, 64);
-	this->defaultEnvMapGGX = makeBlackCubeMap(2); // Black first
+	//this->defaultEnvMapGGX = makeBlackCubeMap(2); // Black first
 	this->defaultEnvMapGGX = computeEnvMapGGX(skybox, 256); // Then render the skybox
-	this->reflectionProbeArray = makeDefaultReflectionProbes(2);
+	//this->reflectionProbeArray = makeDefaultReflectionProbes(2);
 }
 
 void RenderPipeline::render(const std::vector<Mesh>& meshes) {
@@ -119,14 +120,62 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
         
-        for (const auto& probe : reflectionProbes) {
-			p.setUniform("uModel", glm::translate(probe.position) * glm::scale(glm::vec3(0.25f)));
+		for (std::size_t i = 0; i < reflectionProbes->size(); ++i) {
+			if (i == currentProbeIndex) {
+				continue;
+			}
+
+			p.setUniform("uModel", glm::translate((*reflectionProbes)[i].position) * glm::scale(glm::vec3(0.25f)));
             p.setTexture("uEnvMapArray", reflectionProbeArray);
             p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
-			p.setUniform("uLayer", static_cast<float>(probe.layer));
+			p.setUniform("uLayer", static_cast<float>((*reflectionProbes)[i].layer));
             vaoSphere->bind().draw();
         }
     }
+
+	// Render the currently selected probe
+	if (currentProbeIndex >= 0 && currentProbeIndex < reflectionProbes->size()) {
+		auto pos = (*reflectionProbes)[currentProbeIndex].position;
+		auto min = (*reflectionProbes)[currentProbeIndex].aabbMin;
+		auto max = (*reflectionProbes)[currentProbeIndex].aabbMax;
+
+		GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(enable, GL_CULL_FACE);
+
+		auto fbo = hdrFbo->bind();
+		auto p = selectedProbeShader->use();
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uModel", glm::translate(pos) * glm::scale(glm::vec3(0.25f)));
+		p.setUniform("uColor", glm::vec3(1.0f, 0.0f, 1.0f));
+		p.setUniform("uLightDir", glm::normalize(-light->direction));
+		vaoSphere->bind().draw();
+
+		// Render the probes influence radius
+		GLOW_SCOPED(disable, GL_CULL_FACE);
+		GLOW_SCOPED(polygonMode, GL_FRONT_AND_BACK, GL_LINE);
+	
+		auto vaoBox = glow::geometry::Cube<>(glow::geometry::Cube<>::attributesOf((glow::geometry::CubeVertex*)0), min, max).generate();
+
+		p.setUniform("uModel", glm::translate(pos));
+		vaoBox->bind().draw();
+	}
+
+	// Render the probe placement preview
+	if (probePlacementPreviewEnabled) {
+		GLOW_SCOPED(enable, GL_DEPTH_TEST);
+		GLOW_SCOPED(disable, GL_CULL_FACE);
+		GLOW_SCOPED(polygonMode, GL_FRONT_AND_BACK, GL_LINE);
+
+		auto fbo = hdrFbo->bind();
+		auto p = selectedProbeShader->use();
+		p.setUniform("uView", cam.getViewMatrix());
+		p.setUniform("uProj", cam.getProjectionMatrix());
+		p.setUniform("uModel", glm::translate(probePlacementPreviewPos) * glm::scale(glm::vec3(0.25f)));
+		p.setUniform("uColor", glm::vec3(0.0f, 1.0f, 0.0f));
+		p.setUniform("uLightDir", glm::normalize(-light->direction));
+		vaoSphere->bind().draw();
+	}
 	
 	{ // Bloom
 		GLOW_SCOPED(disable, GL_DEPTH_TEST);
@@ -268,77 +317,96 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 	return defaultEnvMapGGX;
 }
 
-void RenderPipeline::renderReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, const std::vector<Mesh>& meshes) {
-	auto targetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
-	{
-		auto tex = targetArray->bind();
-		tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
-		tex.setMagFilter(GL_LINEAR);
-	}
-
-	auto ggxTargetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
-	{
-		auto tex = ggxTargetArray->bind();
-		tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
-		tex.setMagFilter(GL_LINEAR);
-	}
-
+void RenderPipeline::bakeReflectionProbes(const std::vector<ReflectionProbe>& probes, int size, int bounces, const std::vector<Mesh>& meshes) {
+	std::vector<glm::vec3> data;
+	data.resize(probes.size() * 3);
 	for (const auto& probe : probes) {
-		auto lightMatrix = makeLightMatrix(probe.position);
-		renderSceneToShadowMap(meshes, lightMatrix);
+		data[probe.layer * 3] = probe.position;
+		data[probe.layer * 3 + 1] =  probe.aabbMin;
+		data[probe.layer * 3 + 2] =  probe.aabbMax;
+	}
 
-		fillRenderQueues(meshes);
+	probeInfluenceTexture = glow::Texture1DArray::createStorageImmutable(3, static_cast<int>(probes.size()), GL_RGB32F);
+	{
+		auto tex = probeInfluenceTexture->bind();
+		tex.setFilter(GL_NEAREST, GL_NEAREST);
+		tex.setData(GL_RGB32F, 3, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
+	}
 
-		auto envDepth = glow::Texture2D::createStorageImmutable(size, size, GL_DEPTH_COMPONENT32);
-		auto envMapFbo = glow::Framebuffer::createDepthOnly(envDepth);
-		
-		GLOW_SCOPED(enable, GL_DEPTH_TEST);
-		GLOW_SCOPED(enable, GL_CULL_FACE);
-		GLOW_SCOPED(clearColor, 0, 0, 0, 0);
+	this->reflectionProbeArray = makeDefaultReflectionProbes(2);
 
-		/*
-		GL_TEXTURE_CUBE_MAP_POSITIVE_X
-		GL_TEXTURE_CUBE_MAP_NEGATIVE_X
-		GL_TEXTURE_CUBE_MAP_POSITIVE_Y
-		GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
-		GL_TEXTURE_CUBE_MAP_POSITIVE_Z
-		GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-		*/
-		const glm::vec3 faceDirVectors[] = {
-			glm::vec3(1.0f, 0.0f, 0.0f),
-			glm::vec3(-1.0f, 0.0f, 0.0f),
-			glm::vec3(0.0f, 1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, 0.0f, 1.0f),
-			glm::vec3(0.0f, 0.0f, -1.0f)
-		};
-
-		const glm::vec3 faceUpVectors[] = {
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, 0.0f, 1.0f),
-			glm::vec3(0.0f, 0.0f, -1.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f)
-		};
-
-		glow::camera::GenericCamera envMapCam;
-		envMapCam.setViewportSize(size, size);
-		envMapCam.setAspectRatio(size / static_cast<float>(size));
-		envMapCam.setVerticalFieldOfView(90.0f);
-		envMapCam.setPosition(probe.position);
-
-		for (int faceID = 0; faceID < 6; ++faceID) {
-			int layer = probe.layer * 6 + faceID;
-			envMapFbo->bind().attachColor("fColor", targetArray, 0, layer);
-			envMapCam.setLookAtMatrix(probe.position, probe.position + faceDirVectors[faceID], faceUpVectors[faceID]);
-			renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
+	for (int i = 0; i < bounces; ++i) {
+		auto targetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
+		{
+			auto tex = targetArray->bind();
+			tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+			tex.setMagFilter(GL_LINEAR);
 		}
 
-		computeEnvMapGGXProbe(probe.layer, size, targetArray, ggxTargetArray);
-	}
+		auto ggxTargetArray = glow::TextureCubeMapArray::createStorageImmutable(size, size, static_cast<int>(probes.size()) * 6, GL_RGBA16F);
+		{
+			auto tex = ggxTargetArray->bind();
+			tex.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+			tex.setMagFilter(GL_LINEAR);
+		}
 
-	reflectionProbeArray = ggxTargetArray;
+		for (const auto& probe : probes) {
+			auto lightMatrix = makeLightMatrix(probe.position);
+			renderSceneToShadowMap(meshes, lightMatrix);
+
+			fillRenderQueues(meshes);
+
+			auto envDepth = glow::Texture2D::createStorageImmutable(size, size, GL_DEPTH_COMPONENT32);
+			auto envMapFbo = glow::Framebuffer::createDepthOnly(envDepth);
+
+			GLOW_SCOPED(enable, GL_DEPTH_TEST);
+			GLOW_SCOPED(enable, GL_CULL_FACE);
+			GLOW_SCOPED(clearColor, 0, 0, 0, 0);
+
+			/*
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+			*/
+			const glm::vec3 faceDirVectors[] = {
+				glm::vec3(1.0f, 0.0f, 0.0f),
+				glm::vec3(-1.0f, 0.0f, 0.0f),
+				glm::vec3(0.0f, 1.0f, 0.0f),
+				glm::vec3(0.0f, -1.0f, 0.0f),
+				glm::vec3(0.0f, 0.0f, 1.0f),
+				glm::vec3(0.0f, 0.0f, -1.0f)
+			};
+
+			const glm::vec3 faceUpVectors[] = {
+				glm::vec3(0.0f, -1.0f, 0.0f),
+				glm::vec3(0.0f, -1.0f, 0.0f),
+				glm::vec3(0.0f, 0.0f, 1.0f),
+				glm::vec3(0.0f, 0.0f, -1.0f),
+				glm::vec3(0.0f, -1.0f, 0.0f),
+				glm::vec3(0.0f, -1.0f, 0.0f)
+			};
+
+			glow::camera::GenericCamera envMapCam;
+			envMapCam.setViewportSize(size, size);
+			envMapCam.setAspectRatio(size / static_cast<float>(size));
+			envMapCam.setVerticalFieldOfView(90.0f);
+			envMapCam.setPosition(probe.position);
+
+			for (int faceID = 0; faceID < 6; ++faceID) {
+				int layer = probe.layer * 6 + faceID;
+				envMapFbo->bind().attachColor("fColor", targetArray, 0, layer);
+				envMapCam.setLookAtMatrix(probe.position, probe.position + faceDirVectors[faceID], faceUpVectors[faceID]);
+				renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
+			}
+
+			computeEnvMapGGXProbe(probe.layer, size, targetArray, ggxTargetArray);
+		}
+
+		reflectionProbeArray = ggxTargetArray;
+	}
 }
 
 void RenderPipeline::setProbeVisibilityGridScale(int scale) {
@@ -368,41 +436,7 @@ void RenderPipeline::setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid) {
 }
 
 void RenderPipeline::setReflectionProbes(const std::vector<ReflectionProbe>& probes) {
-    reflectionProbes = probes;
-
-	{
-		std::vector<glm::vec3> data;
-		data.reserve(2 * probes.size());
-		for (const auto& probe : probes) {
-			data.push_back(probe.aabbMin);
-			data.push_back(probe.aabbMax);
-
-			glow::info() << probe.aabbMin.x << "  " << probe.aabbMin.y << "  " << probe.aabbMin.z;
-			glow::info() << probe.aabbMax.x << "  " << probe.aabbMax.y << "  " << probe.aabbMax.z << "\n";
-		}
-
-		probeAABBTexture = glow::Texture1DArray::createStorageImmutable(2, static_cast<int>(probes.size()), GL_RGB32F);
-		{
-			auto tex = probeAABBTexture->bind();
-			tex.setFilter(GL_NEAREST, GL_NEAREST);
-			tex.setData(GL_RGB32F, 2, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
-		}
-	}
-
-	{
-		std::vector<glm::vec3> data;
-		data.reserve(probes.size());
-		for (const auto& probe : probes) {
-			data.push_back(probe.position);
-		}
-
-		probePositionTexture = glow::Texture1DArray::createStorageImmutable(1, static_cast<int>(probes.size()), GL_RGB32F);
-		{
-			auto tex = probePositionTexture->bind();
-			tex.setFilter(GL_NEAREST, GL_NEAREST);
-			tex.setData(GL_RGB32F, 1, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
-		}
-	}
+    reflectionProbes = &probes;
 }
 
 void RenderPipeline::setAmbientColor(const glm::vec3& color) {
@@ -478,6 +512,15 @@ void RenderPipeline::setShowDebugProbeGrid(bool show) {
 	showDebugProbeGrid = show;
 }
 
+void RenderPipeline::setCurrentProbeIndex(int index) {
+	currentProbeIndex = index;
+}
+
+void RenderPipeline::setProbePlancementPreview(bool enabled, glm::vec3 position) {
+	probePlacementPreviewEnabled = enabled;
+	probePlacementPreviewPos = position;
+}
+
 void RenderPipeline::setUseIrradianceMap(bool use) {
 	useIrradianceMap = use;
 }
@@ -488,6 +531,10 @@ void RenderPipeline::setUseAOMap(bool use) {
 
 void RenderPipeline::setUseIBL(bool use) {
 	useIbl = use;
+}
+
+void RenderPipeline::setUseLocalProbes(bool use) {
+	useLocalProbes = use;
 }
 
 void RenderPipeline::setBloomPercentage(float value) {
@@ -565,6 +612,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
+		p.setUniform("uUseLocalProbes", reflectionProbeArray ? useLocalProbes : false);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
@@ -573,8 +621,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uEnvLutGGX", envLutGGX);
 		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
 		p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
-		p.setTexture("uProbeAABBTexture", probeAABBTexture);
-		p.setTexture("uProbePositionTexture", probePositionTexture);
+		p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);
 
 		for (const auto& mesh : texturedMeshes) {
 			p.setUniform("uModel", mesh.transform);
@@ -606,6 +653,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
+		p.setUniform("uUseLocalProbes", reflectionProbeArray ? useLocalProbes : false);
 		p.setUniform("uBloomPercentage", bloomPercentage);
         p.setUniform("uProbePos", probePos);
         p.setUniform("uAABBMin", probeAabbMin);
@@ -615,10 +663,12 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
-		p.setTexture("uReflectionProbeArray", reflectionProbeArray);
-		p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
-		p.setTexture("uProbeAABBTexture", probeAABBTexture);
-		p.setTexture("uProbePositionTexture", probePositionTexture);
+
+		if (reflectionProbeArray) {
+			p.setTexture("uReflectionProbeArray", reflectionProbeArray);
+			p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
+			p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);
+		}
 
 		for (const auto& mesh : untexturedMeshes) {
 			p.setUniform("uModel", mesh.transform);

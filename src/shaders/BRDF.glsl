@@ -47,8 +47,6 @@ vec3 shadingGGX(vec3 N, vec3 V, vec3 L, vec3 color, float roughness, float metal
 
 vec3 iblSpecularGGX(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float metallic) {
     float dotNV = max(dot(N, V), 0.0);
-    //vec3 R = reflect(-V, N);//2 * dot(N, V) * N - V;
-
     vec3 specularColor = mix(vec3(0.04), color, metallic);
 
     float maxLevel = floor(log2(float(textureSize(uEnvMapGGX, 0).x)));
@@ -60,8 +58,6 @@ vec3 iblSpecularGGX(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float m
 
 vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, float metallic, vec3 worldPos) {
     float dotNV = max(dot(N, V), 0.0);
-    //vec3 R = reflect(-V, N);//2 * dot(N, V) * N - V;
-
     vec3 specularColor = mix(vec3(0.04), color, metallic);
 
     float maxLevel = floor(log2(float(textureSize(uEnvMapGGX, 0).x)));
@@ -70,69 +66,29 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	vec3 gridCell = getProbeGridCell(worldPos);
 	vec3 probeLayers = getProbeLayersForVoxel(gridCell);
 
-	vec3 probePos0 = getProbePositionForLayer(probeLayers.x);
-	vec3 probePos1 = getProbePositionForLayer(probeLayers.y);
-	vec3 probePos2 = getProbePositionForLayer(probeLayers.z);
+	vec3 probePos0 =  getProbePosition(probeLayers.x);
+	vec3 probePos1 =  getProbePosition(probeLayers.y);
+	vec3 probePos2 =  getProbePosition(probeLayers.z);
 
-	vec3 boxSize = vec3(10);
-	vec3 aabbMin0 = probePos0 - boxSize;//getProbeAABBMin(probeLayers.x);
-	vec3 aabbMax0 = probePos0 + boxSize;//getProbeAABBMax(probeLayers.x);
-	vec3 aabbMin1 = probePos1 - boxSize;//getProbeAABBMin(probeLayers.y);
-	vec3 aabbMax1 = probePos1 + boxSize;//getProbeAABBMax(probeLayers.y);
-	vec3 aabbMin2 = probePos2 - boxSize;//getProbeAABBMin(probeLayers.z);
-	vec3 aabbMax2 = probePos2 + boxSize;//getProbeAABBMax(probeLayers.z);
+	vec3 probeBoxMin0 = probePos0 + getProbeInfluenceBoxMin(probeLayers.x);
+	vec3 probeBoxMax0 = probePos0 + getProbeInfluenceBoxMax(probeLayers.x);
+	vec3 probeBoxMin1 = probePos1 + getProbeInfluenceBoxMin(probeLayers.y);
+	vec3 probeBoxMax1 = probePos1 + getProbeInfluenceBoxMax(probeLayers.y);
+	vec3 probeBoxMin2 = probePos2 + getProbeInfluenceBoxMin(probeLayers.z);
+	vec3 probeBoxMax2 = probePos2 + getProbeInfluenceBoxMax(probeLayers.z);
 
-	vec3 R0 = parallaxCorrectedReflection(R, worldPos, probePos0, aabbMin0, aabbMax0);
-	vec3 R1 = parallaxCorrectedReflection(R, worldPos, probePos1, aabbMin1, aabbMax1);
-	vec3 R2 = parallaxCorrectedReflection(R, worldPos, probePos2, aabbMin2, aabbMax2);
+	vec3 R0 = parallaxCorrectedReflection(R, worldPos, probePos0, probeBoxMin0, probeBoxMax0);
+	vec3 R1 = parallaxCorrectedReflection(R, worldPos, probePos1, probeBoxMin1, probeBoxMax1);
+	vec3 R2 = parallaxCorrectedReflection(R, worldPos, probePos2, probeBoxMin2, probeBoxMax2);
 
-	vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R, probeLayers.x), roughness * maxLevel).rgb;
-	vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R, probeLayers.y), roughness * maxLevel).rgb;
-	vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R, probeLayers.z), roughness * maxLevel).rgb;
+	vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R0, probeLayers.x), roughness * maxLevel).rgb;
+	vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R1, probeLayers.y), roughness * maxLevel).rgb;
+	vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R2, probeLayers.z), roughness * maxLevel).rgb;
 
-	vec3 envcolor = vec3(1,0,1);// = (envcolor0 + envcolor1 + envcolor2) / 3.0;
-	if (isInInnerBox(worldPos, aabbMin0, aabbMax0)) envcolor = envcolor0;
-	else if (isInInnerBox(worldPos, aabbMin1, aabbMax1)) envcolor = envcolor1;
-	else if (isInInnerBox(worldPos, aabbMin2, aabbMax2)) envcolor = envcolor2;
-	else {
-		bool isInBox0 = isInBox(worldPos, aabbMin0, aabbMax0);
-		bool isInBox1 = isInBox(worldPos, aabbMin1, aabbMax1);
-		bool isInBox2 = isInBox(worldPos, aabbMin2, aabbMax2);
-
-		if (isInBox0 && isInBox1 && isInBox2) {
-			vec3 blendFactors = getBlendMapFactors3(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
-			envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
-		}
-		else if (isInBox0 && isInBox1) {
-			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1);
-			envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y;
-		}
-		else if (isInBox0 && isInBox2) {
-			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin0, aabbMax0, aabbMin2, aabbMax2);
-			envcolor = envcolor0 * blendFactors.x + envcolor2 * blendFactors.y;
-		}
-		else if (isInBox1 && isInBox2) {
-			vec2 blendFactors = getBlendMapFactors2(worldPos, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
-			envcolor = envcolor1 * blendFactors.x + envcolor2 * blendFactors.y;
-		}
-		else if (isInBox0) {
-			float blendFactor = getBlendMapFactors1(worldPos, aabbMin0, aabbMax0);
-			envcolor = envcolor0 * blendFactor;
-		}
-		else if (isInBox1) {
-			float blendFactor = getBlendMapFactors1(worldPos, aabbMin1, aabbMax1);
-			envcolor = envcolor1 * blendFactor;
-		}
-		else if (isInBox2) {
-			float blendFactor = getBlendMapFactors1(worldPos, aabbMin2, aabbMax2);
-			envcolor = envcolor2 * blendFactor;
-		}
-	}
-
-	//envcolor = probeLayers;
+	vec3 blendFactors = getBlendMapFactors(worldPos, probeBoxMin0, probeBoxMax0, probeBoxMin1, probeBoxMax1, probeBoxMin2, probeBoxMax2);
+	vec3 envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
 	
-	//vec3 blendFactors = getBlendMapFactors3(worldPos, aabbMin0, aabbMax0, aabbMin1, aabbMax1, aabbMin2, aabbMax2);
-    //envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
+	//envcolor = probeLayers;
 
     return envcolor * (specularColor * envbrdf.x + envbrdf.y);
 }

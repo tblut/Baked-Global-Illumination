@@ -15,7 +15,7 @@ Set the correct path to Embree 3.1 and add the bin/ directory in the Embree inst
 ### Linux
 
 * To build the project open a terminal and run "cmake CMakeLists.txt && make -j".
-* Before starting the application in any way, Embree must be added to the path with "source <embree_dir>/embree_vars.sh"
+* Before starting the application in any way, Embree must be added to the path with "source embree-3.1.0.x86_64.linux/embree_vars.sh"
 * To start the application navigate to the bin directory and run, for example, "./BakedGI ./models/test2.glb ./textures/test2.lm ./textures/test2.pd".
 * To bake a new light map run "./BakedGI ./models/test2.glb -bake somename.lm -irr <width> <height> <samples_per_pixel>".
 

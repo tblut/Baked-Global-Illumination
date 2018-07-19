@@ -20,8 +20,15 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <glm/gtc/packing.hpp>
 
+#define DEV_BUILD
+
 RenderPipeline::RenderPipeline() {
+#ifdef DEV_BUILD
 	std::string workDir = glow::util::pathOf(__FILE__);
+#else
+	std::string workDir = "./";
+#endif
+	
 	objectShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/Object.fsh" });
 	objectTexShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTex.fsh" });
     objectIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBL.fsh" });

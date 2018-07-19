@@ -194,7 +194,7 @@ void TW_CALL BakedGIApp::debugTrace(void* clientData) {
 
 void TW_CALL BakedGIApp::saveTrace(void* clientData) {
 	auto sharedData = static_cast<SharedData*>(clientData);
-	sharedData->pathTracer->saveDebugImageToFile(glow::util::pathOf(__FILE__) + "/textures/debugtrace.png");
+	sharedData->pathTracer->saveDebugImageToFile("debugtrace.png");
 }
 
 void TW_CALL BakedGIApp::placeProbe(void* clientData) {

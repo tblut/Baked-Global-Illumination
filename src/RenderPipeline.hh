@@ -85,7 +85,9 @@ private:
 	glow::SharedProgram objectShader;
     glow::SharedProgram objectTexShader;
     glow::SharedProgram objectIBLShader;
-    glow::SharedProgram objectTexIBLShader;
+	glow::SharedProgram objectIBLProbesShader;
+	glow::SharedProgram objectTexIBLShader;
+    glow::SharedProgram objectTexIBLProbesShader;
 	glow::SharedProgram shadowShader;
 	glow::SharedProgram skyboxShader;
 	glow::SharedProgram downsampleShader;

@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
 	std::string outputPath;
 	int aoWidth = 0, aoHeight = 0, aoSpp = 0;
 	int irrWidth = 0, irrHeight = 0, irrSpp = 0;
+	float lightStrength = 5.0f;
 
 	if (argc >= 3) {
 		std::string arg(argv[2]);
@@ -53,6 +54,15 @@ int main(int argc, char* argv[]) {
 					irrSpp = std::atoi(argv[i + 3]);
 					i += 4;
 				}
+				else if (std::strcmp(argv[i], "-light") == 0) {
+					if (i + 1 >= argc) {
+						glow::error() << "No enough arguments: -light <strength>";
+						return -1;
+					}
+
+					lightStrength = std::atof(argv[i + 1]);
+					i += 2;
+				}
 				else {
 					glow::error() << "Unknown argument " << argv[i];
 				}
@@ -71,6 +81,7 @@ int main(int argc, char* argv[]) {
 		PathTracer pathTracer;
 		Scene scene;
 		scene.loadFromGltf(gltfPath);
+		scene.getSun().power = lightStrength;
 		scene.buildPathTracerScene(pathTracer);
 		IlluminationBaker illuminationBaker(pathTracer);
 

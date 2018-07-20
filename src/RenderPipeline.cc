@@ -20,7 +20,7 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <glm/gtc/packing.hpp>
 
-//#define DEV_BUILD
+#define DEV_BUILD
 
 RenderPipeline::RenderPipeline() {
 #ifdef DEV_BUILD
@@ -32,7 +32,9 @@ RenderPipeline::RenderPipeline() {
 	objectShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/Object.fsh" });
 	objectTexShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTex.fsh" });
     objectIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBL.fsh" });
-    objectTexIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBL.fsh" });
+	objectIBLProbesShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBLProbes.fsh" });
+	objectTexIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBL.fsh" });
+    objectTexIBLProbesShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBLProbes.fsh" });
 	shadowShader = glow::Program::createFromFile(workDir + "/shaders/Shadow");
 	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/Skybox");
 	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
@@ -601,7 +603,15 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (!texturedMeshes.empty()) { // Render textured objects
-		auto p = objectTexIBLShader->use();
+		glow::SharedProgram shader;
+		if (reflectionProbeArray && useLocalProbes) {
+			shader = objectTexIBLProbesShader;
+		}
+		else {
+			shader = objectTexIBLShader;
+		}
+
+		auto p = shader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
 		p.setUniform("uCamPos", cam.getPosition());
@@ -614,7 +624,6 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
-		p.setUniform("uUseLocalProbes", reflectionProbeArray ? useLocalProbes : false);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
@@ -622,7 +631,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 
-		if (reflectionProbeArray) {
+		if (reflectionProbeArray && useLocalProbes) {
 			p.setTexture("uReflectionProbeArray", reflectionProbeArray);
 			p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
 			p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);
@@ -645,7 +654,15 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 	}
 
 	if (!untexturedMeshes.empty()) { // Render untextured objects
-		auto p = objectIBLShader->use();
+		glow::SharedProgram shader;
+		if (reflectionProbeArray && useLocalProbes) {
+			shader = objectIBLProbesShader;
+		}
+		else {
+			shader = objectIBLShader;
+		}
+
+		auto p = shader->use();
 		p.setUniform("uView", cam.getViewMatrix());
 		p.setUniform("uProj", cam.getProjectionMatrix());
 		p.setUniform("uCamPos", cam.getPosition());
@@ -658,7 +675,6 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
-		p.setUniform("uUseLocalProbes", reflectionProbeArray ? useLocalProbes : false);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
@@ -666,7 +682,7 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
 
-		if (reflectionProbeArray) {
+		if (reflectionProbeArray && useLocalProbes) {
 			p.setTexture("uReflectionProbeArray", reflectionProbeArray);
 			p.setTexture("uProbeVisibilityTexture", probeVisibilityTexture);
 			p.setTexture("uProbeInfluenceTexture", probeInfluenceTexture);

@@ -66,9 +66,8 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	vec3 gridCell = getProbeGridCell(worldPos);
 	vec3 probeLayers = getProbeLayersForVoxel(gridCell);
 
-	
-	if (probeLayers.x < -0.5 && probeLayers.y < -0.5 && probeLayers.z < -0.5) {
-		iblSpecularGGX(N, V, R, color, roughness, metallic);
+	if (probeLayers.x < 0 && probeLayers.y < 0 && probeLayers.z < 0) {
+		return iblSpecularGGX(N, V, R, color, roughness, metallic);
 	}
 	else {
 		vec3 probePos0 =  getProbePosition(probeLayers.x);

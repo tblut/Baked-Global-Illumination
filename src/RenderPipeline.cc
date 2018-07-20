@@ -20,7 +20,7 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <glm/gtc/packing.hpp>
 
-//#define DEV_BUILD
+#define DEV_BUILD
 
 RenderPipeline::RenderPipeline() {
 #ifdef DEV_BUILD
@@ -387,6 +387,7 @@ void RenderPipeline::bakeReflectionProbes(const std::vector<ReflectionProbe>& pr
 	{
 		auto tex = probeInfluenceTexture->bind();
 		tex.setFilter(GL_NEAREST, GL_NEAREST);
+		tex.setWrap(GL_CLAMP_TO_EDGE);
 		tex.setData(GL_RGB32F, 3, static_cast<int>(probes.size()), GL_RGB, GL_FLOAT, data.data());
 	}
 
@@ -483,6 +484,7 @@ void RenderPipeline::setProbeVisibilityGrid(const VoxelGrid<glm::ivec3>& grid) {
 		{
 			auto tex = probeVisibilityTexture->bind();
 			tex.setFilter(GL_NEAREST, GL_NEAREST);
+			tex.setWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 			tex.setData(GL_RGB32F, grid.getDimensions().x, grid.getDimensions().y, grid.getDimensions().z, GL_RGB, GL_FLOAT, data.data());
 		}
 	}
@@ -627,6 +629,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
+		p.setUniform("uProbeGridMin", probeVisibilityMin);
+		p.setUniform("uProbeGridMax", probeVisibilityMax);
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);
@@ -678,6 +682,8 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
+		p.setUniform("uProbeGridMin", probeVisibilityMin);
+		p.setUniform("uProbeGridMax", probeVisibilityMax);
 		p.setTexture("uTextureShadow", shadowBuffer);
 		p.setTexture("uEnvMapGGX", defaultEnvMapGGX);
 		p.setTexture("uEnvLutGGX", envLutGGX);

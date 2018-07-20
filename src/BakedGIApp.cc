@@ -232,14 +232,18 @@ bool testSphereAABB(glm::vec3 spherePos, float radius, glm::vec3 aabbMin, glm::v
 	return sqDist <= radius * radius;
 }
 
+bool testBoxBox(glm::vec3 min0, glm::vec3 max0, glm::vec3 min1, glm::vec3 max1) {
+	return min0.x < max1.x && min0.y < max1.y && min0.z < max1.z
+		&& max0.x > min1.x && max0.y > min1.y && max0.z > min1.z;
+}
+
 void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 	auto sharedData = static_cast<SharedData*>(clientData);
 
 	glm::vec3 min, max;
 	sharedData->scene->getBoundingBox(min, max);
-	int res = sharedData->voxelGridRes;
 
-	sharedData->visibilityGrid = std::make_shared<VoxelGrid<glm::ivec3>>(min, max, glm::ivec3(res));
+	sharedData->visibilityGrid = std::make_shared<VoxelGrid<glm::ivec3>>(min, max, glm::ivec3(sharedData->voxelGridRes));
 	sharedData->visibilityGrid->fill(glm::ivec3(-1));
 	sharedData->visibilityGrid->forEachVoxel([&](int x, int y, int z) {
 		glm::vec3 center = sharedData->visibilityGrid->getVoxelCenter({ x, y, z });
@@ -248,7 +252,11 @@ void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 
 		std::vector<int> visibleProbes;
 		for (int probeIndex = 0; probeIndex < sharedData->probes->size(); ++probeIndex) {
-			visibleProbes.push_back(probeIndex);
+			glm::vec3 probeMin = (*sharedData->probes)[probeIndex].position + (*sharedData->probes)[probeIndex].aabbMin;
+			glm::vec3 probeMax = (*sharedData->probes)[probeIndex].position + (*sharedData->probes)[probeIndex].aabbMax;
+			if (testBoxBox(voxelMin, voxelMax, probeMin, probeMax)) {
+				visibleProbes.push_back(probeIndex);
+			}
 		}
 
 		std::sort(visibleProbes.begin(), visibleProbes.end(), [&](int a, int b) {
@@ -257,15 +265,22 @@ void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 			return glm::dot(distA, distA) < glm::dot(distB, distB);
 		});
 
-		int layer0 = visibleProbes.size() >= 1 ? (*sharedData->probes)[visibleProbes[0]].layer : -1;
-		int layer1 = visibleProbes.size() >= 2 ? (*sharedData->probes)[visibleProbes[1]].layer : -1;
-		int layer2 = visibleProbes.size() >= 3 ? (*sharedData->probes)[visibleProbes[2]].layer : -1;
+		glm::ivec3 layers(-1);
+		if (visibleProbes.size() == 1) {
+			layers = glm::ivec3((int)(*sharedData->probes)[visibleProbes[0]].layer);
+		}
+		else if (visibleProbes.size() == 2) {
+			layers = glm::ivec3((int)(*sharedData->probes)[visibleProbes[0]].layer, (int)(*sharedData->probes)[visibleProbes[0]].layer, (int)(*sharedData->probes)[visibleProbes[1]].layer);
+		}
+		else if (visibleProbes.size() >= 3) {
+			layers = glm::ivec3((int)(*sharedData->probes)[visibleProbes[0]].layer, (int)(*sharedData->probes)[visibleProbes[1]].layer, (int)(*sharedData->probes)[visibleProbes[2]].layer);
+		}
 
-		sharedData->visibilityGrid->setVoxel({ x, y, z }, glm::ivec3(layer0, layer1, layer2));
+		sharedData->visibilityGrid->setVoxel({ x, y, z }, layers);
 	});
 
 	sharedData->pipeline->setProbeVisibilityGrid(*sharedData->visibilityGrid);
-	sharedData->pipeline->bakeReflectionProbes(*sharedData->probes, 128, 2, sharedData->scene->getMeshes());
+	sharedData->pipeline->bakeReflectionProbes(*sharedData->probes, sharedData->probeSize, sharedData->numBounces, sharedData->scene->getMeshes());
 	
 }
 

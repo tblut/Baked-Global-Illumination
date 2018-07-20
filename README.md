@@ -1,23 +1,42 @@
-## What do I see here?
+Precomputed Global Illumiation for Games
+==============
 
-The main goal of this project is to precompute diffuse and specular global illumination. The lighting model used here is the one proposed by Epic Games, using GGX for specular and Lambert for diffuse.
-Diffuse indirect lighting is precomputed using an unidirection path tracer that supports importance sampling for GGX and Lambert.
-The resulting irradiance is stored in a lightmap. Parallax corrected reflection probes are used for specular and glossy reflections. They are manually placed using an in-app user interface.
-To determine which pixel should use which probes, a "visibility" voxel grid is precomputed that hold the closest three probes per voxel. The voxels can then be accesed in the object shader to fetch
-the correct three probes for interpolation. The interpolated probe sample is then used for the image-based lighting part of Epic Games' shading model.
+Game Devolpment Practical SS18
+
+Timothy Blut | 334609 | <timothy.blut@rwth-aachen.de>
+
+## Project Details
+
+* Main goal: Precompute diffuse and specular global illumination for use in realtime rendering.
+* Shading model from Epic Games (Lambert for diffuse and GGX for specular)
+	* With support for albedo, roughness and normal maps
+* Forward rendering pipeline with HDR, Bloom, PCF shadows, Dithering and FXAA
+* glTF scene importer (allows Metallic/Roughness material setup)
+* Indirect diffuse lighting is solved using irradiance maps (light maps)
+	* Irradiance for each light map texel is computed using an unidirectional path tracer
+	* The path tracer uses importance sampling and supports a background cubemap, and albedo and roughness maps (but no normal maps)
+	* The scene loader expects the light map UVs to be in channel 0 (channel 1 is for albedo/roughness/normal maps)
+* Specular reflections are rendered using precomputed parallax corrected reflection probes
+	* The probes are placed in a scene manually with the in-app UI
+	* During the baking process the reflection maps are prefiltered using the proposed filtering method from Epic Games
+	* A voxel grid that contains the three closest probes is used to determine which probes to interpolate
 
 ## Setup
 
 ### Windows
 
 Set the correct path to Embree 3.1 and add the bin/ directory in the Embree installation directory to the PATH variable.
+Open the Visual Studio solution and build.
 
 ### Linux
 
-* To build the project open a terminal and run "cmake CMakeLists.txt && make -j".
-* Before starting the application in any way, Embree must be added to the path with "source embree-3.1.0.x86_64.linux/embree_vars.sh"
-* To start the application navigate to the bin directory and run, for example, "./BakedGI ./models/test2.glb ./textures/test2.lm ./textures/test2.pd".
-* To bake a new light map run "./BakedGI ./models/test2.glb -bake somename.lm -irr width height samples_per_pixel".
+* To build the project open a terminal and run `cmake CMakeLists.txt && make -j`.
+* Before starting the application in any way, Embree must be added to the path with `source embree-3.1.0.x86_64.linux/embree_vars.sh`
+
+## Running
+
+* To start the application navigate to the bin directory and run, for example, `./BakedGI ./models/test2.glb ./textures/test2.lm ./textures/test2.pd´.
+* To bake a new light map run `./BakedGI ./models/test2.glb -bake somename.lm -irr width height samples_per_pixel`.
 
 ## Library licenses
 

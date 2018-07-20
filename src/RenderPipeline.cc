@@ -20,7 +20,7 @@
 #include <glow-extras/camera/GenericCamera.hh>
 #include <glm/gtc/packing.hpp>
 
-//#define DEV_BUILD
+#define DEV_BUILD
 
 RenderPipeline::RenderPipeline() {
 #ifdef DEV_BUILD

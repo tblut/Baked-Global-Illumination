@@ -63,7 +63,7 @@ void BakedGIApp::init() {
 	debugPathTracer->setBackgroundCubeMap(skybox);*/
 
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
-	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.1 step=0.1");
+	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.0 step=0.1");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
 	TwAddVarRW(tweakbar(), "Shadow Map Size", TwDefineEnum("", nullptr, 0), &shadowMapSize,
 		"group=light, enum='64 {64}, 128 {128}, 256 {256}, 512 {512}, 1024 {1024}, 2048 {2048}, 4096 {4096}'");
@@ -248,11 +248,7 @@ void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 
 		std::vector<int> visibleProbes;
 		for (int probeIndex = 0; probeIndex < sharedData->probes->size(); ++probeIndex) {
-			//glm::vec3 pos = (*sharedData->probes)[probeIndex].position;
-			//float radius = (*sharedData->probes)[probeIndex].radius;
-			//if (testSphereAABB(pos, radius, voxelMin, voxelMax)) {
-				visibleProbes.push_back(probeIndex);
-			//}
+			visibleProbes.push_back(probeIndex);
 		}
 
 		std::sort(visibleProbes.begin(), visibleProbes.end(), [&](int a, int b) {
@@ -265,7 +261,7 @@ void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 		int layer1 = visibleProbes.size() >= 2 ? (*sharedData->probes)[visibleProbes[1]].layer : -1;
 		int layer2 = visibleProbes.size() >= 3 ? (*sharedData->probes)[visibleProbes[2]].layer : -1;
 
-		sharedData->visibilityGrid->setVoxel({ x, y, z }, glm::ivec3(1, 0, 1));// glm::ivec3(layer0, layer1, layer2));
+		sharedData->visibilityGrid->setVoxel({ x, y, z }, glm::ivec3(layer0, layer1, layer2));
 	});
 
 	sharedData->pipeline->setProbeVisibilityGrid(*sharedData->visibilityGrid);

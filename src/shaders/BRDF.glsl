@@ -66,29 +66,35 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
 	vec3 gridCell = getProbeGridCell(worldPos);
 	vec3 probeLayers = getProbeLayersForVoxel(gridCell);
 
-	vec3 probePos0 =  getProbePosition(probeLayers.x);
-	vec3 probePos1 =  getProbePosition(probeLayers.y);
-	vec3 probePos2 =  getProbePosition(probeLayers.z);
-
-	vec3 probeBoxMin0 = probePos0 + getProbeInfluenceBoxMin(probeLayers.x);
-	vec3 probeBoxMax0 = probePos0 + getProbeInfluenceBoxMax(probeLayers.x);
-	vec3 probeBoxMin1 = probePos1 + getProbeInfluenceBoxMin(probeLayers.y);
-	vec3 probeBoxMax1 = probePos1 + getProbeInfluenceBoxMax(probeLayers.y);
-	vec3 probeBoxMin2 = probePos2 + getProbeInfluenceBoxMin(probeLayers.z);
-	vec3 probeBoxMax2 = probePos2 + getProbeInfluenceBoxMax(probeLayers.z);
-
-	vec3 R0 = parallaxCorrectedReflection(R, worldPos, probePos0, probeBoxMin0, probeBoxMax0);
-	vec3 R1 = parallaxCorrectedReflection(R, worldPos, probePos1, probeBoxMin1, probeBoxMax1);
-	vec3 R2 = parallaxCorrectedReflection(R, worldPos, probePos2, probeBoxMin2, probeBoxMax2);
-
-	vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R0, probeLayers.x), roughness * maxLevel).rgb;
-	vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R1, probeLayers.y), roughness * maxLevel).rgb;
-	vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R2, probeLayers.z), roughness * maxLevel).rgb;
-
-	vec3 blendFactors = getBlendMapFactors(worldPos, probeBoxMin0, probeBoxMax0, probeBoxMin1, probeBoxMax1, probeBoxMin2, probeBoxMax2);
-	vec3 envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
 	
-	//envcolor = probeLayers;
+	if (probeLayers.x < -0.5 && probeLayers.y < -0.5 && probeLayers.z < -0.5) {
+		iblSpecularGGX(N, V, R, color, roughness, metallic);
+	}
+	else {
+		vec3 probePos0 =  getProbePosition(probeLayers.x);
+		vec3 probePos1 =  getProbePosition(probeLayers.y);
+		vec3 probePos2 =  getProbePosition(probeLayers.z);
 
-    return envcolor * (specularColor * envbrdf.x + envbrdf.y);
+		vec3 probeBoxMin0 = probePos0 + getProbeInfluenceBoxMin(probeLayers.x);
+		vec3 probeBoxMax0 = probePos0 + getProbeInfluenceBoxMax(probeLayers.x);
+		vec3 probeBoxMin1 = probePos1 + getProbeInfluenceBoxMin(probeLayers.y);
+		vec3 probeBoxMax1 = probePos1 + getProbeInfluenceBoxMax(probeLayers.y);
+		vec3 probeBoxMin2 = probePos2 + getProbeInfluenceBoxMin(probeLayers.z);
+		vec3 probeBoxMax2 = probePos2 + getProbeInfluenceBoxMax(probeLayers.z);
+
+		vec3 R0 = parallaxCorrectedReflection(R, worldPos, probePos0, probeBoxMin0, probeBoxMax0);
+		vec3 R1 = parallaxCorrectedReflection(R, worldPos, probePos1, probeBoxMin1, probeBoxMax1);
+		vec3 R2 = parallaxCorrectedReflection(R, worldPos, probePos2, probeBoxMin2, probeBoxMax2);
+
+		vec3 envcolor0 = textureLod(uReflectionProbeArray, vec4(R0, probeLayers.x), roughness * maxLevel).rgb;
+		vec3 envcolor1 = textureLod(uReflectionProbeArray, vec4(R1, probeLayers.y), roughness * maxLevel).rgb;
+		vec3 envcolor2 = textureLod(uReflectionProbeArray, vec4(R2, probeLayers.z), roughness * maxLevel).rgb;
+
+		vec3 blendFactors = getBlendMapFactors(worldPos, probeBoxMin0, probeBoxMax0, probeBoxMin1, probeBoxMax1, probeBoxMin2, probeBoxMax2);
+		vec3 envcolor = envcolor0 * blendFactors.x + envcolor1 * blendFactors.y + envcolor2 * blendFactors.z;
+	
+		//envcolor = probeLayers;
+
+		return envcolor * (specularColor * envbrdf.x + envbrdf.y);
+	}
 }

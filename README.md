@@ -35,7 +35,7 @@ Open the Visual Studio solution and build.
 
 ## Running
 
-* To start the application navigate to the bin directory and run, for example, `./BakedGI ./models/test2.glb ./textures/test2.lm ./textures/test2.pd´.
+* To start the application navigate to the bin directory and run, for example, `./BakedGI ./models/test2.glb ./textures/test2.lm ./textures/test2.pd`.
 * To bake a new light map run `./BakedGI ./models/test2.glb -bake somename.lm -irr width height samples_per_pixel`.
 
 ## Library licenses

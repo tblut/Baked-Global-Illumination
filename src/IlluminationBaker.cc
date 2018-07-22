@@ -124,6 +124,12 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 		glm::vec2 t1 = primitive.lightMapTexCoords[index1];
 		glm::vec2 t2 = primitive.lightMapTexCoords[index2];
 
+		if (t0.x < 0 || t0.x > 1 || t0.y < 0 || t0.y > 1
+				|| t1.x < 0 || t1.x > 1 || t1.y < 0 || t1.y > 1
+				|| t2.x < 0 || t2.x > 1 || t2.y < 0 || t2.y > 1) {
+			glow::error() << "The light map UV coordinates are not in the [0,1] range for " << primitive.name;
+		}
+
 		glm::vec2 texel0 = t0 * glm::vec2(width, height) + glm::vec2(0.5f);
 		glm::vec2 texel1 = t1 * glm::vec2(width, height) + glm::vec2(0.5f);
 		glm::vec2 texel2 = t2 * glm::vec2(width, height) + glm::vec2(0.5f);
@@ -162,7 +168,7 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 					glm::vec3 worldPos = v0 * bary.x + v1 * bary.y + v2 * bary.z;
 					glm::vec3 worldNormal = glm::normalize(n0 * bary.x + n1 * bary.y + n2 * bary.z);
 					auto value = op(worldPos, worldNormal);
-
+					
 					int imageX = static_cast<int>(texelP.x - 0.5f);
 					int imageY = static_cast<int>(texelP.y - 0.5f);
 					buffer[imageX + imageY * width] += value;

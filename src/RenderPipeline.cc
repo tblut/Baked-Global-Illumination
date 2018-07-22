@@ -453,6 +453,12 @@ void RenderPipeline::bakeReflectionProbes(const std::vector<ReflectionProbe>& pr
 			envMapCam.setVerticalFieldOfView(90.0f);
 			envMapCam.setPosition(probe.position);
 
+			{ // HACK: Do a "test run" to fix some weird bug where pos x renders no meshes?!
+				envMapFbo->bind().attachColor("fColor", targetArray, 0, probe.layer * 6);
+				envMapCam.setLookAtMatrix(probe.position, probe.position + faceDirVectors[0], faceUpVectors[0]);
+				renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
+			}
+
 			for (int faceID = 0; faceID < 6; ++faceID) {
 				int layer = probe.layer * 6 + faceID;
 				envMapFbo->bind().attachColor("fColor", targetArray, 0, layer);

@@ -108,8 +108,8 @@ GLenum Image::getWrapT() const {
 }
 
 glm::vec4 Image::sample(glm::vec2 uv) const {
-	if (wrapS == GL_REPEAT) std::fmod(uv.x, 1.0);
-	if (wrapT == GL_REPEAT) std::fmod(uv.y, 1.0);
+	if (wrapS == GL_REPEAT) uv.x = static_cast<float>(std::fmod(uv.x, 1.0));
+	if (wrapT == GL_REPEAT) uv.y = static_cast<float>(std::fmod(uv.y, 1.0));
 	if (uv.x < 0.0f) uv.x += 1.0f;
 	if (uv.y < 0.0f) uv.y += 1.0f;
 

@@ -51,7 +51,6 @@ void BakedGIApp::init() {
 	scene.buildPathTracerScene(*debugPathTracer);
 	scene.buildRealtimeObjects(lmPath);
     
-    /*
     auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
 	auto skybox = CubeMap::loadFromFiles(
 		pbt + "/posx.jpg",
@@ -60,7 +59,7 @@ void BakedGIApp::init() {
 		pbt + "/negy.jpg",
 		pbt + "/posz.jpg",
 		pbt + "/negz.jpg");
-	debugPathTracer->setBackgroundCubeMap(skybox);*/
+	debugPathTracer->setBackgroundCubeMap(skybox);
 
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.0 step=0.1");

@@ -14,18 +14,17 @@ float getProbeLayer(vec3 coord) {
 }
 
 vec3 getProbePosition(float layer) {
-	return texture(uProbeInfluenceTexture, vec2(0.01, layer)).xyz;
+	return texelFetch(uProbeInfluenceTexture, ivec2(0, int(layer)), 0).xyz;
 }
 
 vec3 getProbeInfluenceBoxMin(float layer) {
-	return texture(uProbeInfluenceTexture, vec2(0.5, layer)).xyz;
+	return texelFetch(uProbeInfluenceTexture, ivec2(1, int(layer)), 0).xyz;
 }
 
 vec3 getProbeInfluenceBoxMax(float layer) {
-	return texture(uProbeInfluenceTexture, vec2(0.99, layer)).xyz;
+	return texelFetch(uProbeInfluenceTexture, ivec2(2, int(layer)), 0).xyz;
 }
 
 vec3 getProbeLayersForVoxel(vec3 coord) {
-	vec3 texCoord = coord / uProbeGridDimensions;
-	return texture(uProbeVisibilityTexture, texCoord).xyz;
+	return texelFetch(uProbeVisibilityTexture, ivec3(coord), 0).xyz;
 }

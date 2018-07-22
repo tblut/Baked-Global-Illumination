@@ -60,7 +60,7 @@ vec3 iblSpecularGGXProbe(vec3 N, vec3 V, vec3 R, vec3 color, float roughness, fl
     float dotNV = max(dot(N, V), 0.0);
     vec3 specularColor = mix(vec3(0.04), color, metallic);
 
-    float maxLevel = floor(log2(float(textureSize(uEnvMapGGX, 0).x)));
+    float maxLevel = floor(log2(float(textureSize(uReflectionProbeArray, 0).x)));
     vec2 envbrdf = textureLod(uEnvLutGGX, vec2(roughness, dotNV), 0).xy;
 	
 	vec3 gridCell = getProbeGridCell(worldPos);

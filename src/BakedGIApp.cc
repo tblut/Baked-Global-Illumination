@@ -2,6 +2,7 @@
 #include "LightMapWriter.hh"
 #include "ProbeDataWriter.hh"
 #include "ProbeDataReader.hh"
+#include "Common.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture2D.hh>
@@ -51,7 +52,7 @@ void BakedGIApp::init() {
 	scene.buildPathTracerScene(*debugPathTracer);
 	scene.buildRealtimeObjects(lmPath);
     
-    auto pbt = glow::util::pathOf(__FILE__) + "/textures/miramar";
+    auto pbt = getWorkDir() + "/textures/miramar";
 	auto skybox = CubeMap::loadFromFiles(
 		pbt + "/posx.jpg",
 		pbt + "/negx.jpg",

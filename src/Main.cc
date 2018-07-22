@@ -3,6 +3,7 @@
 #include "IlluminationBaker.hh"
 #include "Scene.hh"
 #include "LightMapWriter.hh"
+#include "Common.hh"
 
 #include <string>
 
@@ -13,9 +14,10 @@
 // Options:
 //   -ao <w> <h> <spp> : enable ambient occlusion baking with the given width, height and samples per pixel
 //   -irr <w> <h> <spp> : enable irradiance baking with the given width, height and samples per pixel
+//   -light <power> : sets the light power
 // Examples:
-//   baked-gi "myscene.gltf" "prebaked.lm"
-//   baked-gi "myscene.gltf" -ao 512 512 1000 -irr 256 256 2000 -f "prebaked.lm"
+//   baked-gi myscene.gltf prebaked.lm probes.pd
+//   baked-gi myscene.gltf -bake prebaked.lm -irr 256 256 2000 -light 10
 int main(int argc, char* argv[]) {
 	std::string gltfPath(argv[1]);
 	std::string lmPath;
@@ -78,17 +80,29 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (!outputPath.empty()) {
-		PathTracer pathTracer;
 		Scene scene;
 		scene.loadFromGltf(gltfPath);
 		scene.getSun().power = lightStrength;
+		
+		PathTracer pathTracer;
 		scene.buildPathTracerScene(pathTracer);
+
+		auto pbt = getWorkDir() + "/textures/miramar";
+		auto skybox = CubeMap::loadFromFiles(
+			pbt + "/posx.jpg",
+			pbt + "/negx.jpg",
+			pbt + "/posy.jpg",
+			pbt + "/negy.jpg",
+			pbt + "/posz.jpg",
+			pbt + "/negz.jpg");
+		pathTracer.setBackgroundCubeMap(skybox);
+
 		IlluminationBaker illuminationBaker(pathTracer);
 
 		std::vector<SharedImage> irradianceMaps;
 		if (irrWidth > 0 && irrHeight > 0 && irrSpp > 0) {
 			for (std::size_t i = 0; i < scene.getPrimitives().size(); ++i) {
-				glow::info() << "Baking irradiance map " << i + 1 << " of " << scene.getPrimitives().size();
+				glow::info() << "Baking irradiance map " << i + 1 << " of " << scene.getPrimitives().size() << " for " << scene.getPrimitives()[i].name;
 				auto lightMapImage = illuminationBaker.bakeIrradiance(scene.getPrimitives()[i], irrWidth, irrHeight, irrSpp);
 				irradianceMaps.push_back(lightMapImage);
 			}
@@ -97,7 +111,7 @@ int main(int argc, char* argv[]) {
 		std::vector<SharedImage> aoMaps;
 		if (aoWidth > 0 && aoHeight > 0 && aoSpp > 0) {
 			for (std::size_t i = 0; i < scene.getPrimitives().size(); ++i) {
-				glow::info() << "Baking ambient occlusion map " << i + 1 << " of " << scene.getPrimitives().size();
+				glow::info() << "Baking ambient occlusion map " << i + 1 << " of " << scene.getPrimitives().size() << " for " << scene.getPrimitives()[i].name;
 				auto aoImage = illuminationBaker.bakeAmbientOcclusion(scene.getPrimitives()[i], aoWidth, aoHeight, aoSpp, 0.15f);
 				aoMaps.push_back(aoImage);
 			}

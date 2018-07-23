@@ -108,12 +108,12 @@ GLenum Image::getWrapT() const {
 }
 
 glm::vec4 Image::sample(glm::vec2 uv) const {
-	if (wrapS == GL_REPEAT) uv.x = static_cast<float>(std::fmod(uv.x, 1.0));
-	if (wrapT == GL_REPEAT) uv.y = static_cast<float>(std::fmod(uv.y, 1.0));
+	if (std::abs(uv.x) > 1.0f && wrapS == GL_REPEAT) uv.x = std::fmod(uv.x, 1.0f);
+	if (std::abs(uv.y) > 1.0f && wrapT == GL_REPEAT) uv.y = std::fmod(uv.y, 1.0f);
 	if (uv.x < 0.0f) uv.x += 1.0f;
 	if (uv.y < 0.0f) uv.y += 1.0f;
 
-	glm::ivec2 coord00 = glm::ivec2(uv.x * width, uv.y * height);
+	glm::ivec2 coord00 = glm::ivec2(uv.x * (width - 1), uv.y * (height - 1));
 	glm::ivec2 coord10 = glm::ivec2(std::min(coord00.x + 1, width - 1), coord00.y);
 	glm::ivec2 coord01 = glm::ivec2(coord00.x, std::min(coord00.y + 1, height - 1));
 	glm::ivec2 coord11 = glm::ivec2(coord10.x, coord01.y);

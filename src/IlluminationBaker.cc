@@ -130,17 +130,17 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 			glow::error() << "The light map UV coordinates are not in the [0,1] range for " << primitive.name;
 		}
 
-		glm::vec2 texel0 = t0 * glm::vec2(width, height) + glm::vec2(0.5f);
-		glm::vec2 texel1 = t1 * glm::vec2(width, height) + glm::vec2(0.5f);
-		glm::vec2 texel2 = t2 * glm::vec2(width, height) + glm::vec2(0.5f);
+		glm::vec2 texel0 = t0 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
+		glm::vec2 texel1 = t1 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
+		glm::vec2 texel2 = t2 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
 
 		glm::vec3 v0 = primitive.transform * glm::vec4(primitive.positions[index0], 1.0f);
 		glm::vec3 v1 = primitive.transform * glm::vec4(primitive.positions[index1], 1.0f);
 		glm::vec3 v2 = primitive.transform * glm::vec4(primitive.positions[index2], 1.0f);
 
-		glm::vec3 n0 = normalMatrix * primitive.normals[index0];
-		glm::vec3 n1 = normalMatrix * primitive.normals[index1];
-		glm::vec3 n2 = normalMatrix * primitive.normals[index2];
+		glm::vec3 n0 = glm::normalize(normalMatrix * primitive.normals[index0]);
+		glm::vec3 n1 = glm::normalize(normalMatrix * primitive.normals[index1]);
+		glm::vec3 n2 = glm::normalize(normalMatrix * primitive.normals[index2]);
 
 		float minX = std::min(texel0.x, std::min(texel1.x, texel2.x));
 		float minY = std::min(texel0.y, std::min(texel1.y, texel2.y));
@@ -149,13 +149,13 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 
 		int numStepsX = static_cast<int>(std::ceil(maxX - minX));
 		int numStepsY = static_cast<int>(std::ceil(maxY - minY));
-		//if (minX + numStepsX > width) numStepsX = width - minX;// -1;
-		//if (minY + numStepsY > height) numStepsY = height - minY;// -1;
+		//if (static_cast<int>(minX) + numStepsX >= width) numStepsX = width - static_cast<int>(minX);// -1;
+		//if (static_cast<int>(minY) + numStepsY >= height) numStepsY = height - static_cast<int>(minY);// -1;
 
 		for (int sample = 0; sample < samplesPerTexel; ++sample) {
 			#pragma omp parallel for
-			for (int stepY = 0; stepY < numStepsY; ++stepY) {
-				for (int stepX = 0; stepX < numStepsX; ++stepX) {
+			for (int stepY = 0; stepY <= numStepsY; ++stepY) {
+				for (int stepX = 0; stepX <= numStepsX; ++stepX) {
 					glm::vec2 texelP = glm::vec2(minX, minY) + glm::vec2(stepX, stepY);
 					texelP.x = texelP.x + (uniformDist(randEngine) - 0.5f);
 					texelP.y = texelP.y + (uniformDist(randEngine) - 0.5f);

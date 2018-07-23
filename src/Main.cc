@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
 	int aoWidth = 0, aoHeight = 0, aoSpp = 0;
 	int irrWidth = 0, irrHeight = 0, irrSpp = 0;
 	float lightStrength = 5.0f;
+	int maxBounces = 10;
 
 	if (argc >= 3) {
 		std::string arg(argv[2]);
@@ -65,6 +66,15 @@ int main(int argc, char* argv[]) {
 					lightStrength = std::atof(argv[i + 1]);
 					i += 2;
 				}
+				else if (std::strcmp(argv[i], "-bounces") == 0) {
+					if (i + 1 >= argc) {
+						glow::error() << "No enough arguments: -light <strength>";
+						return -1;
+					}
+
+					maxBounces = std::atoi(argv[i + 1]);
+					i += 2;
+				}
 				else {
 					glow::error() << "Unknown argument " << argv[i];
 				}
@@ -96,6 +106,7 @@ int main(int argc, char* argv[]) {
 			pbt + "/posz.jpg",
 			pbt + "/negz.jpg");
 		pathTracer.setBackgroundCubeMap(skybox);
+		pathTracer.setMaxPathDepth(maxBounces);
 
 		IlluminationBaker illuminationBaker(pathTracer);
 

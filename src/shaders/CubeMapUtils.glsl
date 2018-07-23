@@ -23,7 +23,7 @@ float getInfluenceWeight(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
 	vec3 localDir = vec3(abs(localPos.x), abs(localPos.y), abs(localPos.z));
 	localDir = localDir / halfSize;
 	float ndf = max(localDir.x, max(localDir.y, localDir.z));
-	return ndf;
+	return min(ndf, 1.0);
 }
 
 vec3 getBlendMapFactors(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0, vec3 aabbMin1, vec3 aabbMax1, vec3 aabbMin2, vec3 aabbMax2) {

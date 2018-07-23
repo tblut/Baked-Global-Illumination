@@ -8,6 +8,7 @@
 #include <glm/ext.hpp>
 #include <glow/fwd.hh>
 #include <glow-extras/glfw/GlfwApp.hh>
+#include <GLFW/glfw3.h>
 #include <AntTweakBar.h>
 
 #include <memory>
@@ -20,6 +21,7 @@ protected:
 	virtual void init() override;
 	virtual void render(float elapsedSeconds) override;
 	virtual void onResize(int w, int h) override;
+	virtual bool onKey(int key, int scancode, int action, int mods) override;
 
 private:
 	struct SharedData {

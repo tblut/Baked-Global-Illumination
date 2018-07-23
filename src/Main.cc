@@ -5,6 +5,7 @@
 #include "LightMapWriter.hh"
 #include "Common.hh"
 
+#include <glow/common/str_utils.hh>
 #include <string>
 
 // Format:
@@ -19,14 +20,23 @@
 //   baked-gi myscene.gltf prebaked.lm probes.pd
 //   baked-gi myscene.gltf -bake prebaked.lm -irr 256 256 2000 -light 10
 int main(int argc, char* argv[]) {
-	std::string gltfPath(argv[1]);
-	std::string lmPath;
-	std::string pdPath;
+	std::string gltfPath = getWorkDir() + "/models/presentation_video.glb";
+	std::string lmPath = getWorkDir() + "/textures/presentation_video.lm";
+	std::string pdPath = getWorkDir() + "/textures/presentation_video.pd";
 	std::string outputPath;
 	int aoWidth = 0, aoHeight = 0, aoSpp = 0;
 	int irrWidth = 0, irrHeight = 0, irrSpp = 0;
 	float lightStrength = 5.0f;
 	int maxBounces = 10;
+
+	if (argc >= 2) {
+		gltfPath = std::string(argv[1]);
+		lmPath = "";
+		pdPath = "";
+	}
+	else {
+		glow::info() << "No scene file specified. Using the default scene ...";
+	}
 
 	if (argc >= 3) {
 		std::string arg(argv[2]);
@@ -81,10 +91,29 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		else {
-			lmPath = arg;
-
+			if (glow::util::fileEndingOf(arg) == ".lm") {
+				lmPath = arg;
+			}
+			else if(glow::util::fileEndingOf(arg) == ".pd") {
+				pdPath = arg;
+			}
+			else {
+				glow::error() << "Unknown file format passed as light map or probe data file.";
+				return -1;
+			}
+			
 			if (argc >= 4) {
-				pdPath = std::string(argv[3]);
+				arg = std::string(argv[3]);
+				if (glow::util::fileEndingOf(arg) == ".lm") {
+					lmPath = arg;
+				}
+				else if (glow::util::fileEndingOf(arg) == ".pd") {
+					pdPath = arg;
+				}
+				else {
+					glow::error() << "Unknown file format passed as light map or probe data file.";
+					return -1;
+				}
 			}
 		}
 	}

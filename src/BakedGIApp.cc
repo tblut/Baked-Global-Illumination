@@ -35,7 +35,13 @@ void BakedGIApp::init() {
     glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &numLayers);
     glow::info() << "Max array texture layers: " << numLayers;
 
+	GLint maxUniforms;
+	glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &maxUniforms);
+	glow::info() << "Max fragment shader uniforms: " << maxUniforms;
+
 	this->setQueryStats(false);
+	this->setCameraMoveSpeed(8.0f);
+	this->setCameraTurnSpeed(3.0f);
 
 	auto cam = getCamera();
 	cam->setPosition({ 0, 0, 1 });
@@ -125,10 +131,6 @@ void BakedGIApp::init() {
 		pipeline->setReflectionProbes(*sharedData.probes);
 		pipeline->bakeReflectionProbes(*sharedData.probes, sharedData.probeSize, sharedData.numBounces, scene.getMeshes());
 	}
-
-	GLint maxUniforms;
-	glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &maxUniforms);
-	glow::info() << maxUniforms;
 }
 
 void BakedGIApp::render(float elapsedSeconds) {
@@ -182,6 +184,39 @@ void BakedGIApp::render(float elapsedSeconds) {
 void BakedGIApp::onResize(int w, int h) {
 	glow::glfw::GlfwApp::onResize(w, h);
 	pipeline->resizeBuffers(w, h);
+}
+
+bool BakedGIApp::onKey(int key, int scancode, int action, int mods) {
+	if (GlfwApp::onKey(key, scancode, action, mods)) {
+		return true;
+	}
+
+	if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+		setCursorMode(getCursorMode() == glow::glfw::CursorMode::Normal ? glow::glfw::CursorMode::Hidden : glow::glfw::CursorMode::Normal);
+		return true;
+	}
+	if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+		useIrradianceMap = !useIrradianceMap;
+		return true;
+	}
+	if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+		useIbl = !useIbl;
+		return true;
+	}
+	if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+		useLocalProbes = !useLocalProbes;
+		return true;
+	}
+	if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
+		showDebugEnvProbes = !showDebugEnvProbes;
+		return true;
+	}
+	if (key == GLFW_KEY_5 && action == GLFW_PRESS) {
+		showProbeVisGrid = !showProbeVisGrid;
+		return true;
+	}
+
+	return false;
 }
 
 void TW_CALL BakedGIApp::debugTrace(void* clientData) {

@@ -362,7 +362,6 @@ glow::SharedTextureCubeMap RenderPipeline::renderEnvironmentMap(const glm::vec3&
 		renderSceneToFBO(envMapFbo, envMapCam, lightMatrix);
 	}
 
-	
 	this->defaultEnvMapGGX = computeEnvMapGGX(envMap, size);
 
 	return defaultEnvMapGGX;

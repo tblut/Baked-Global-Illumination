@@ -203,15 +203,15 @@ bool BakedGIApp::onKey(int key, int scancode, int action, int mods) {
 		useIbl = !useIbl;
 		return true;
 	}
-	if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+	if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
 		useLocalProbes = !useLocalProbes;
 		return true;
 	}
-	if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
+	if (key == GLFW_KEY_5 && action == GLFW_PRESS) {
 		showDebugEnvProbes = !showDebugEnvProbes;
 		return true;
 	}
-	if (key == GLFW_KEY_5 && action == GLFW_PRESS) {
+	if (key == GLFW_KEY_6 && action == GLFW_PRESS) {
 		showProbeVisGrid = !showProbeVisGrid;
 		return true;
 	}

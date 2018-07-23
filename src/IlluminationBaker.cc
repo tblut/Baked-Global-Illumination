@@ -28,7 +28,7 @@ namespace {
     }
     
     bool isPointInTriangle(const glm::vec3& barycentric) {
-        return (barycentric.x >= 0.0f) && (barycentric.y >= 0.0f) && (barycentric.x + barycentric.y <= 1.0f);
+        return (barycentric.y >= 0.0f) && (barycentric.z >= 0.0f) && (barycentric.y + barycentric.z <= 1.0f);
     }
     
     std::random_device randDevice;
@@ -130,9 +130,9 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 			glow::error() << "The light map UV coordinates are not in the [0,1] range for " << primitive.name;
 		}
 
-		glm::vec2 texel0 = t0 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
-		glm::vec2 texel1 = t1 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
-		glm::vec2 texel2 = t2 * glm::vec2(width - 1, height - 1) + glm::vec2(0.5f);
+		glm::vec2 texel0 = glm::floor(t0 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
+		glm::vec2 texel1 = glm::floor(t1 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
+		glm::vec2 texel2 = glm::floor(t2 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
 
 		glm::vec3 v0 = primitive.transform * glm::vec4(primitive.positions[index0], 1.0f);
 		glm::vec3 v1 = primitive.transform * glm::vec4(primitive.positions[index1], 1.0f);
@@ -147,15 +147,15 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 		float maxX = std::max(texel0.x, std::max(texel1.x, texel2.x));
 		float maxY = std::max(texel0.y, std::max(texel1.y, texel2.y));
 
-		int numStepsX = static_cast<int>(std::ceil(maxX - minX));
-		int numStepsY = static_cast<int>(std::ceil(maxY - minY));
+		int numStepsX = static_cast<int>(maxX) - static_cast<int>(minX) + 1;
+		int numStepsY = static_cast<int>(maxY) - static_cast<int>(minY) + 1;
 		//if (static_cast<int>(minX) + numStepsX >= width) numStepsX = width - static_cast<int>(minX);// -1;
 		//if (static_cast<int>(minY) + numStepsY >= height) numStepsY = height - static_cast<int>(minY);// -1;
 
 		for (int sample = 0; sample < samplesPerTexel; ++sample) {
 			#pragma omp parallel for
-			for (int stepY = 0; stepY <= numStepsY; ++stepY) {
-				for (int stepX = 0; stepX <= numStepsX; ++stepX) {
+			for (int stepY = 0; stepY < numStepsY; ++stepY) {
+				for (int stepX = 0; stepX < numStepsX; ++stepX) {
 					glm::vec2 texelP = glm::vec2(minX, minY) + glm::vec2(stepX, stepY);
 					texelP.x = texelP.x + (uniformDist(randEngine) - 0.5f);
 					texelP.y = texelP.y + (uniformDist(randEngine) - 0.5f);
@@ -169,8 +169,8 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 					glm::vec3 worldNormal = glm::normalize(n0 * bary.x + n1 * bary.y + n2 * bary.z);
 					auto value = op(worldPos, worldNormal);
 					
-					int imageX = static_cast<int>(texelP.x - 0.5f);
-					int imageY = static_cast<int>(texelP.y - 0.5f);
+					int imageX = static_cast<int>(texelP.x);
+					int imageY = static_cast<int>(texelP.y);
 					buffer[imageX + imageY * width] += value;
 					numSamples[imageX + imageY * width]++;
 				}

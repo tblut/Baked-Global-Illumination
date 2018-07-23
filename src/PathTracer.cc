@@ -276,6 +276,10 @@ glm::vec3 PathTracer::trace(const glm::vec3& origin, const glm::vec3& dir, const
 		rayhit.hit.u, rayhit.hit.v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, &normal[0], 3);
 	normal = glm::normalize(normal);
 
+	if (glm::dot(normal, dir) > 0.0f) {
+		normal = -normal;
+	}
+
 	const Material& material = materials.at(rayhit.hit.geomID);
 	glm::vec3 albedo;
 	float roughness = material.roughness;

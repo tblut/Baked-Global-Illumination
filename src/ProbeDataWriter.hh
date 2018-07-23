@@ -7,4 +7,5 @@
 #include <string>
 #include <vector>
 
-void writeProbeDataToFile(const std::string& path, const std::vector<ReflectionProbe>& probes, const VoxelGrid<glm::ivec3>& visibilityGrid);
+void writeProbeDataToFile(const std::string& path, const std::vector<ReflectionProbe>& probes,
+	int textureSize, int numBounces, const VoxelGrid<glm::ivec3>& visibilityGrid);

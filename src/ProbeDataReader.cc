@@ -3,13 +3,16 @@
 
 #include <glow/common/log.hh>
 
-std::shared_ptr<VoxelGrid<glm::ivec3>> readProbeDataToFile(const std::string& path, std::vector<ReflectionProbe>& outProbes) {
+std::shared_ptr<VoxelGrid<glm::ivec3>> readProbeDataToFile(const std::string& path,
+		std::vector<ReflectionProbe>& outProbes, int& outTextureSize, int& outNumBounces) {
 	std::ifstream inputFile(path, std::ios::binary | std::ios::in);
 
 	std::uint32_t numProbes;
 	inputFile.read(reinterpret_cast<char*>(&numProbes), sizeof(std::uint32_t));
-	outProbes.reserve(numProbes);
+	inputFile.read(reinterpret_cast<char*>(&outTextureSize), sizeof(std::int32_t));
+	inputFile.read(reinterpret_cast<char*>(&outNumBounces), sizeof(std::int32_t));
 
+	outProbes.reserve(numProbes);
 	for (std::uint32_t i = 0; i < numProbes; ++i) {
 		ReflectionProbe probe;
 

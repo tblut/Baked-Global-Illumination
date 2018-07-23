@@ -120,10 +120,10 @@ void BakedGIApp::init() {
 	sharedData.probes = &reflectionProbes;
 
 	if (!pdPath.empty()) {
-		sharedData.visibilityGrid = readProbeDataToFile(pdPath, *sharedData.probes);
+		sharedData.visibilityGrid = readProbeDataToFile(pdPath, *sharedData.probes, sharedData.probeSize, sharedData.numBounces);
 		pipeline->setProbeVisibilityGrid(*sharedData.visibilityGrid);
 		pipeline->setReflectionProbes(*sharedData.probes);
-		pipeline->bakeReflectionProbes(*sharedData.probes, 128, 2, scene.getMeshes());
+		pipeline->bakeReflectionProbes(*sharedData.probes, sharedData.probeSize, sharedData.numBounces, scene.getMeshes());
 	}
 
 	GLint maxUniforms;
@@ -286,5 +286,5 @@ void TW_CALL BakedGIApp::rebakeProbes(void* clientData) {
 
 void TW_CALL BakedGIApp::saveProbeData(void* clientData) {
 	auto sharedData = static_cast<SharedData*>(clientData);
-	writeProbeDataToFile("a.pd", *sharedData->probes, *sharedData->visibilityGrid);
+	writeProbeDataToFile("a.pd", *sharedData->probes, sharedData->probeSize, sharedData->numBounces, *sharedData->visibilityGrid);
 }

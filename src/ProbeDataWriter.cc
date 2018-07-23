@@ -1,11 +1,14 @@
 #include "ProbeDataWriter.hh"
 #include <fstream>
 
-void writeProbeDataToFile(const std::string& path, const std::vector<ReflectionProbe>& probes, const VoxelGrid<glm::ivec3>& visibilityGrid) {
+void writeProbeDataToFile(const std::string& path, const std::vector<ReflectionProbe>& probes,
+		int textureSize, int numBounces, const VoxelGrid<glm::ivec3>& visibilityGrid) {
 	std::ofstream outputFile(path, std::ios::binary | std::ios::trunc | std::ios::out);
 
 	std::uint32_t numProbes = static_cast<std::uint32_t>(probes.size());
 	outputFile.write(reinterpret_cast<const char*>(&numProbes), sizeof(std::uint32_t));
+	outputFile.write(reinterpret_cast<const char*>(&textureSize), sizeof(std::int32_t));
+	outputFile.write(reinterpret_cast<const char*>(&numBounces), sizeof(std::int32_t));
 
 	for (const auto& probe : probes) {
 		outputFile.write(reinterpret_cast<const char*>(&probe.position.x), sizeof(float));

@@ -128,7 +128,7 @@ void RenderPipeline::render(const std::vector<Mesh>& meshes) {
 				continue;
 			}
 
-			p.setUniform("uModel", glm::translate((*reflectionProbes)[i].position) * glm::scale(glm::vec3(0.25f)));
+			p.setUniform("uModel", glm::translate((*reflectionProbes)[i].position) * glm::scale(glm::vec3(0.5f)));
             p.setTexture("uEnvMapArray", reflectionProbeArray);
             p.setUniform("uMipLevel", static_cast<float>(debugEnvMapMipLevel));
 			p.setUniform("uLayer", static_cast<float>((*reflectionProbes)[i].layer));

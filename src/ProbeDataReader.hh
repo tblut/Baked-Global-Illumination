@@ -8,4 +8,5 @@
 #include <vector>
 #include <memory>
 
-std::shared_ptr<VoxelGrid<glm::ivec3>> readProbeDataToFile(const std::string& path, std::vector<ReflectionProbe>& outProbes);
+std::shared_ptr<VoxelGrid<glm::ivec3>> readProbeDataToFile(const std::string& path,
+	std::vector<ReflectionProbe>& outProbes, int& outTextureSize, int& outNumBounces);

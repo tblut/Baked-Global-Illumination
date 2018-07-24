@@ -49,6 +49,7 @@ public:
 	void setUseAOMap(bool use);
 	void setUseIBL(bool use);
 	void setUseLocalProbes(bool use);
+	void setFadeValues(float directLightingFade, float irradianceFade, float iblFade, float localProbesFade);
 	void setBloomPercentage(float value);
 	void setExposureAdjustment(float value);
 
@@ -131,6 +132,10 @@ private:
 	glm::vec3 debugEnvMapPosition;
 	int debugEnvMapMipLevel = 0;
 	bool showDebugProbeVisGrid = false;
+	float directLightingFade = 1.0f;
+	float irradianceFade = 1.0f;
+	float iblFade = 1.0f;
+	float localProbesFade = 1.0f;
     
     const std::vector<ReflectionProbe>* reflectionProbes;
     bool isDebugProbeGridEnabled = false;

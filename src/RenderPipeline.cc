@@ -564,6 +564,13 @@ void RenderPipeline::setUseLocalProbes(bool use) {
 	useLocalProbes = use;
 }
 
+void RenderPipeline::setFadeValues(float directLightingFade, float irradianceFade, float iblFade, float localProbesFade) {
+	this->directLightingFade = directLightingFade;
+	this->irradianceFade = irradianceFade;
+	this->iblFade = iblFade;
+	this->localProbesFade = localProbesFade;
+}
+
 void RenderPipeline::setBloomPercentage(float value) {
 	bloomPercentage = value;
 }
@@ -625,6 +632,10 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
+		p.setUniform("uDirectLightingFade", directLightingFade);
+		p.setUniform("uIrradianceFade", irradianceFade);
+		p.setUniform("uIBLFade", iblFade);
+		p.setUniform("uLocalProbesFade", localProbesFade);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));
@@ -678,6 +689,10 @@ void RenderPipeline::renderSceneToFBO(const glow::SharedFramebuffer& targetFbo, 
 		p.setUniform("uUseIrradianceMap", useIrradianceMap);
 		p.setUniform("uUseAOMap", useAOMap);
 		p.setUniform("uUseIBL", useIbl);
+		p.setUniform("uDirectLightingFade", directLightingFade);
+		p.setUniform("uIrradianceFade", irradianceFade);
+		p.setUniform("uIBLFade", iblFade);
+		p.setUniform("uLocalProbesFade", localProbesFade);
 		p.setUniform("uBloomPercentage", bloomPercentage);
 		p.setUniform("uProbeGridCellSize", probeVisibilityVoxelSize);
 		p.setUniform("uProbeGridDimensions", glm::vec3(probeVisibilityGridDimensions));

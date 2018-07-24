@@ -68,6 +68,7 @@ void BakedGIApp::init() {
 		pbt + "/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
 
+	TwAddVarRW(tweakbar(), "Use Direct Lighting", TW_TYPE_BOOLCPP, &useDirectLighting, "group=light");
 	TwAddVarRW(tweakbar(), "Light Color", TW_TYPE_COLOR3F, &scene.getSun().color, "group=light");
 	TwAddVarRW(tweakbar(), "Light Power", TW_TYPE_FLOAT, &scene.getSun().power, "group=light min=0.0 step=0.1");
 	TwAddVarRW(tweakbar(), "Light Dir", TW_TYPE_DIR3F, &scene.getSun().direction, "group=light");
@@ -142,6 +143,34 @@ void BakedGIApp::render(float elapsedSeconds) {
         lastDebugTraceScale = debugTraceScale;
     }
 
+	if (useDirectLighting && directLightingFade < 1.0f) {
+		directLightingFade = std::min(1.0f, directLightingFade + elapsedSeconds * fadeSpeed);
+	}
+	else if (!useDirectLighting && directLightingFade > 0.0f) {
+		directLightingFade = std::max(0.0f, directLightingFade - elapsedSeconds * fadeSpeed);
+	}
+
+	if (useIrradianceMap && irraddianceMapFade < 1.0f) {
+		irraddianceMapFade = std::min(1.0f, irraddianceMapFade + elapsedSeconds * fadeSpeed);
+	}
+	else if (!useIrradianceMap && irraddianceMapFade > 0.0f) {
+		irraddianceMapFade = std::max(0.0f, irraddianceMapFade - elapsedSeconds * fadeSpeed);
+	}
+
+	if (useIbl && iblFade < 1.0f) {
+		iblFade = std::min(1.0f, iblFade + elapsedSeconds * fadeSpeed);
+	}
+	else if (!useIbl && iblFade > 0.0f) {
+		iblFade = std::max(0.0f, iblFade - elapsedSeconds * fadeSpeed);
+	}
+
+	if (useLocalProbes && localProbesFade < 1.0f) {
+		localProbesFade = std::min(1.0f, localProbesFade + elapsedSeconds * fadeSpeed);
+	}
+	else if (!useLocalProbes && localProbesFade > 0.0f) {
+		localProbesFade = std::max(0.0f, localProbesFade - elapsedSeconds * fadeSpeed);
+	}
+
 	if (lastProbeIndex != sharedData.currentProbeIndex) {
 		if (sharedData.currentProbeIndex >= 0 && sharedData.currentProbeIndex < reflectionProbes.size()) {
 			sharedData.currentProbeAABBMin = reflectionProbes[sharedData.currentProbeIndex].aabbMin;
@@ -166,10 +195,10 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setDebugTexture(showDebugLightMap ? scene.getMeshes()[lightMapIndex].material.lightMap : nullptr, DebugImageLocation::TopRight);
 	pipeline->setShadowMapSize(shadowMapSize);
 	pipeline->setShadowMapOffset(shadowMapOffset);
-	pipeline->setUseIrradianceMap(useIrradianceMap);
-	pipeline->setUseAOMap(useAOMap);
-	pipeline->setUseIBL(useIbl);
-	pipeline->setUseLocalProbes(useLocalProbes);
+	//pipeline->setUseIrradianceMap(useIrradianceMap);
+	//pipeline->setUseAOMap(useAOMap);
+	//pipeline->setUseIBL(useIbl);
+	//pipeline->setUseLocalProbes(useLocalProbes);
 	pipeline->setBloomPercentage(bloomPercentage);
 	pipeline->setExposureAdjustment(exposureAdjustment);
 	pipeline->setDebugEnvMapMipLevel(debugEnvMapMipLevel);
@@ -178,6 +207,7 @@ void BakedGIApp::render(float elapsedSeconds) {
 	pipeline->setCurrentProbeIndex(sharedData.currentProbeIndex);
 	pipeline->setProbePlancementPreview(sharedData.isInProbePlacementMode, getCamera()->getPosition() + getCamera()->getForwardDirection());
 	pipeline->setReflectionProbes(reflectionProbes);
+	pipeline->setFadeValues(directLightingFade, irraddianceMapFade, iblFade, localProbesFade);
 	scene.render(*pipeline);
 }
 
@@ -196,22 +226,26 @@ bool BakedGIApp::onKey(int key, int scancode, int action, int mods) {
 		return true;
 	}
 	if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
-		useIrradianceMap = !useIrradianceMap;
+		useDirectLighting = !useDirectLighting;
 		return true;
 	}
 	if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
-		useIbl = !useIbl;
+		useIrradianceMap = !useIrradianceMap;
 		return true;
 	}
 	if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
-		useLocalProbes = !useLocalProbes;
+		useIbl = !useIbl;
 		return true;
 	}
 	if (key == GLFW_KEY_5 && action == GLFW_PRESS) {
-		showDebugEnvProbes = !showDebugEnvProbes;
+		useLocalProbes = !useLocalProbes;
 		return true;
 	}
 	if (key == GLFW_KEY_6 && action == GLFW_PRESS) {
+		showDebugEnvProbes = !showDebugEnvProbes;
+		return true;
+	}
+	if (key == GLFW_KEY_7 && action == GLFW_PRESS) {
 		showProbeVisGrid = !showProbeVisGrid;
 		return true;
 	}

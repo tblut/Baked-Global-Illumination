@@ -75,7 +75,13 @@ private:
 	bool useIbl = true;
 	bool useLocalProbes = true;
 	bool showProbeVisGrid = false;
+	bool useDirectLighting = true;
 
 	std::vector<ReflectionProbe> reflectionProbes;
 	int lastProbeIndex = -100;
+	float directLightingFade = 1.0f;
+	float irraddianceMapFade = 1.0f;
+	float iblFade = 1.0f;
+	float localProbesFade = 1.0f;
+	float fadeSpeed = 1.25f;
 };

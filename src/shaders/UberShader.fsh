@@ -25,6 +25,10 @@ uniform float uBloomPercentage;
 uniform bool uUseIrradianceMap;
 uniform bool uUseAOMap;
 uniform bool uUseIBL;
+uniform float uDirectLightingFade;
+uniform float uIrradianceFade;
+uniform float uIBLFade;
+uniform float uLocalProbesFade;
 
 uniform vec3 uProbePos;
 uniform vec3 uAABBMin;
@@ -67,16 +71,16 @@ void main() {
 	// Shading
     vec3 V = normalize(uCamPos - vWorldPos);
 	vec3 L = uLightDir;
-	vec3 direct = shadingGGX(N, V, L, color, roughness, uMetallic) * uLightColor * shadowFactor;
+	vec3 direct = shadingGGX(N, V, L, color, roughness, uMetallic) * uLightColor * shadowFactor * uDirectLightingFade;
     
 #ifdef IBL
 	if (uUseIBL) {
 		vec3 R = reflect(-V, N);
-	#ifdef LOCAL_PROBES
-		direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos);
-	#else
-		direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic);
-	#endif
+	//#ifdef LOCAL_PROBES
+		direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos) * uIBLFade * uLocalProbesFade;
+	//#else
+		direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic) * uIBLFade * (1.0 - uLocalProbesFade);
+	//#endif
 	}
 #endif
 
@@ -84,7 +88,7 @@ void main() {
 	if (uUseIrradianceMap) {
 		vec3 irradiance = texture(uTextureIrradiance, vLightMapTexCoord).rgb;
 		vec3 diffuse = (1.0 - uMetallic) * color;
-		indirect += irradiance * diffuse;
+		indirect += irradiance * diffuse * uIrradianceFade;
 	}
 	if (uUseAOMap) {
 		float ao = texture(uTextureAO, vLightMapTexCoord).r;

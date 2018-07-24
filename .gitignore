@@ -535,3 +535,7 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+
+# include embree libs
+!libs/embree-3.1.0.x86_64.linux/**

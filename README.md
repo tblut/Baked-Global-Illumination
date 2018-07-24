@@ -5,6 +5,8 @@ Game Devolpment Practical SS18
 
 Timothy Blut | 334609 | <timothy.blut@rwth-aachen.de>
 
+![Screenshots](Screenshots.png)
+
 ## Project Details
 
 * Main goal: Precompute diffuse and specular global illumination for use in realtime rendering.

@@ -3,7 +3,6 @@
 #include "IlluminationBaker.hh"
 #include "Scene.hh"
 #include "LightMapWriter.hh"
-#include "Common.hh"
 
 #include <glow/common/str_utils.hh>
 #include <string>
@@ -20,9 +19,9 @@
 //   baked-gi myscene.gltf prebaked.lm probes.pd
 //   baked-gi myscene.gltf -bake prebaked.lm -irr 256 256 2000 -light 10
 int main(int argc, char* argv[]) {
-	std::string gltfPath = getWorkDir() + "/models/presentation_video.glb";
-	std::string lmPath = getWorkDir() + "/textures/presentation_video.lm";
-	std::string pdPath = getWorkDir() + "/textures/presentation_video.pd";
+	std::string gltfPath = "models/presentation_video.glb";
+	std::string lmPath = "textures/presentation_video.lm";
+	std::string pdPath = "textures/presentation_video.pd";
 	std::string outputPath;
 	int aoWidth = 0, aoHeight = 0, aoSpp = 0;
 	int irrWidth = 0, irrHeight = 0, irrSpp = 0;
@@ -73,7 +72,7 @@ int main(int argc, char* argv[]) {
 						return -1;
 					}
 
-					lightStrength = std::atof(argv[i + 1]);
+					lightStrength = static_cast<float>(std::atof(argv[i + 1]));
 					i += 2;
 				}
 				else if (std::strcmp(argv[i], "-bounces") == 0) {
@@ -126,14 +125,13 @@ int main(int argc, char* argv[]) {
 		PathTracer pathTracer;
 		scene.buildPathTracerScene(pathTracer);
 
-		auto pbt = getWorkDir() + "/textures/miramar";
 		auto skybox = CubeMap::loadFromFiles(
-			pbt + "/posx.jpg",
-			pbt + "/negx.jpg",
-			pbt + "/posy.jpg",
-			pbt + "/negy.jpg",
-			pbt + "/posz.jpg",
-			pbt + "/negz.jpg");
+			"textures/miramar/posx.jpg",
+			"textures/miramar/negx.jpg",
+			"textures/miramar/posy.jpg",
+			"textures/miramar/negy.jpg",
+			"textures/miramar/posz.jpg",
+			"textures/miramar/negz.jpg");
 		pathTracer.setBackgroundCubeMap(skybox);
 		pathTracer.setMaxPathDepth(maxBounces);
 

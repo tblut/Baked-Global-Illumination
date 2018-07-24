@@ -17,13 +17,13 @@ vec3 parallaxCorrectedReflection(vec3 R, vec3 objectPos, vec3 cubeMapPos, vec3 a
 }
 
 float getInfluenceWeight(vec3 worldPos, vec3 aabbMin, vec3 aabbMax) {
-	vec3 center = aabbMin + (aabbMax - aabbMin) * 0.5;
+	vec3 halfSize = (aabbMax - aabbMin) * 0.5;
+	vec3 center = aabbMin + halfSize;
 	vec3 localPos = worldPos - center;
 	vec3 localDir = vec3(abs(localPos.x), abs(localPos.y), abs(localPos.z));
-	vec3 size = aabbMax - aabbMin;
-	localDir = localDir / size;
+	localDir = localDir / halfSize;
 	float ndf = max(localDir.x, max(localDir.y, localDir.z));
-	return ndf > 1.0 ? 0.0 : ndf;
+	return min(ndf, 1.0);
 }
 
 vec3 getBlendMapFactors(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0, vec3 aabbMin1, vec3 aabbMax1, vec3 aabbMin2, vec3 aabbMax2) {
@@ -43,6 +43,7 @@ vec3 getBlendMapFactors(vec3 worldPos, vec3 aabbMin0, vec3 aabbMax0, vec3 aabbMi
 	invSumNDF += (1.0 - ndf0);
 	invSumNDF += (1.0 - ndf1);
 	invSumNDF += (1.0 - ndf2);
+	invSumNDF = max(0.01, invSumNDF);
 
 	vec3 blendFactors;
 	blendFactors.x = (1.0 - (ndf0 / sumNDF)) / (3 - 1);

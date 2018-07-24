@@ -2,7 +2,6 @@
 #include "LightMapWriter.hh"
 #include "ProbeDataWriter.hh"
 #include "ProbeDataReader.hh"
-#include "Common.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture2D.hh>
@@ -58,14 +57,13 @@ void BakedGIApp::init() {
 	scene.buildPathTracerScene(*debugPathTracer);
 	scene.buildRealtimeObjects(lmPath);
     
-    auto pbt = getWorkDir() + "/textures/miramar";
 	auto skybox = CubeMap::loadFromFiles(
-		pbt + "/posx.jpg",
-		pbt + "/negx.jpg",
-		pbt + "/posy.jpg",
-		pbt + "/negy.jpg",
-		pbt + "/posz.jpg",
-		pbt + "/negz.jpg");
+		"textures/miramar/posx.jpg",
+		"textures/miramar/negx.jpg",
+		"textures/miramar/posy.jpg",
+		"textures/miramar/negy.jpg",
+		"textures/miramar/posz.jpg",
+		"textures/miramar/negz.jpg");
 	debugPathTracer->setBackgroundCubeMap(skybox);
 
 	TwAddVarRW(tweakbar(), "Use Direct Lighting", TW_TYPE_BOOLCPP, &useDirectLighting, "group=light");

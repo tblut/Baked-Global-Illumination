@@ -1,5 +1,8 @@
 # ignore the binary
-bin/BakedGI
+bin/*
+!bin/shaders/
+!bin/models/
+!bin/textures/
 
 # Created by https://www.gitignore.io/api/++,qt,c,cmake,visualstudiocode,visualstudio,windows,linux,tortoisegit,sublimetext,osx,ninja,eclipse,kate,python
 

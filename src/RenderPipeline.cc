@@ -1,7 +1,6 @@
 #include "RenderPipeline.hh"
 #include "ColorUtils.hh"
 #include "Scene.hh"
-#include "Common.hh"
 
 #include <glow/objects/Program.hh>
 #include <glow/objects/Texture1D.hh>
@@ -22,26 +21,25 @@
 #include <glm/gtc/packing.hpp>
 
 RenderPipeline::RenderPipeline() {
-	std::string workDir = getWorkDir();	
-	objectShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/Object.fsh" });
-	objectTexShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTex.fsh" });
-    objectIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBL.fsh" });
-	objectIBLProbesShader = glow::Program::createFromFiles({ workDir + "/shaders/Object.vsh", workDir + "/shaders/ObjectIBLProbes.fsh" });
-	objectTexIBLShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBL.fsh" });
-    objectTexIBLProbesShader = glow::Program::createFromFiles({ workDir + "/shaders/ObjectTex.vsh", workDir + "/shaders/ObjectTexIBLProbes.fsh" });
-	shadowShader = glow::Program::createFromFile(workDir + "/shaders/Shadow");
-	skyboxShader = glow::Program::createFromFile(workDir + "/shaders/Skybox");
-	downsampleShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Downsample.fsh" });
-	blurShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/Blur.fsh" });
-	postProcessShader = glow::Program::createFromFiles({ workDir + "/shaders/Fullscreen.vsh", workDir + "/shaders/PostProcess.fsh" });
-	debugImageShader = glow::Program::createFromFile(workDir + "/shaders/DebugImage");
-	debugEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/DebugEnvMap");
-	debugReflProbeShader = glow::Program::createFromFiles({ workDir + "/shaders/DebugEnvMap.vsh", workDir + "/shaders/DebugReflProbes.fsh" });
-	precalcEnvBrdfLutShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvBrdfLut.csh");
-	precalcEnvMapShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMap.csh");
-	precalcEnvMapProbeShader = glow::Program::createFromFile(workDir + "/shaders/PrecalcEnvMapProbe.csh");
-	lineShader = glow::Program::createFromFile(workDir + "/shaders/Line");
-	selectedProbeShader = glow::Program::createFromFile(workDir + "/shaders/SelectedProbe");
+	objectShader = glow::Program::createFromFiles({ "shaders/Object.vsh", "shaders/Object.fsh" });
+	objectTexShader = glow::Program::createFromFiles({ "shaders/ObjectTex.vsh", "shaders/ObjectTex.fsh" });
+    objectIBLShader = glow::Program::createFromFiles({ "shaders/Object.vsh", "shaders/ObjectIBL.fsh" });
+	objectIBLProbesShader = glow::Program::createFromFiles({ "shaders/Object.vsh", "shaders/ObjectIBLProbes.fsh" });
+	objectTexIBLShader = glow::Program::createFromFiles({ "shaders/ObjectTex.vsh", "shaders/ObjectTexIBL.fsh" });
+    objectTexIBLProbesShader = glow::Program::createFromFiles({ "shaders/ObjectTex.vsh", "shaders/ObjectTexIBLProbes.fsh" });
+	shadowShader = glow::Program::createFromFile("shaders/Shadow");
+	skyboxShader = glow::Program::createFromFile("shaders/Skybox");
+	downsampleShader = glow::Program::createFromFiles({ "shaders/Fullscreen.vsh", "shaders/Downsample.fsh" });
+	blurShader = glow::Program::createFromFiles({ "shaders/Fullscreen.vsh", "shaders/Blur.fsh" });
+	postProcessShader = glow::Program::createFromFiles({ "shaders/Fullscreen.vsh", "shaders/PostProcess.fsh" });
+	debugImageShader = glow::Program::createFromFile("shaders/DebugImage");
+	debugEnvMapShader = glow::Program::createFromFile("shaders/DebugEnvMap");
+	debugReflProbeShader = glow::Program::createFromFiles({ "shaders/DebugEnvMap.vsh", "shaders/DebugReflProbes.fsh" });
+	precalcEnvBrdfLutShader = glow::Program::createFromFile("shaders/PrecalcEnvBrdfLut.csh");
+	precalcEnvMapShader = glow::Program::createFromFile("shaders/PrecalcEnvMap.csh");
+	precalcEnvMapProbeShader = glow::Program::createFromFile("shaders/PrecalcEnvMapProbe.csh");
+	lineShader = glow::Program::createFromFile("shaders/Line");
+	selectedProbeShader = glow::Program::createFromFile("shaders/SelectedProbe");
 
 	vaoQuad = glow::geometry::Quad<>().generate();
 	vaoCube = glow::geometry::Cube<>().generate();
@@ -73,14 +71,13 @@ RenderPipeline::RenderPipeline() {
 	shadowBuffer->bind().setWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
 	shadowBuffer->bind().setBorderColor({ 1.0f, 1.0f, 1.0f, 1.0f });
 
-	auto pbt = workDir + "/textures/miramar";
 	skybox = glow::TextureCubeMap::createFromData(glow::TextureData::createFromFileCube(
-		pbt + "/posx.jpg",
-		pbt + "/negx.jpg",
-		pbt + "/posy.jpg",
-		pbt + "/negy.jpg",
-		pbt + "/posz.jpg",
-		pbt + "/negz.jpg",
+		"textures/miramar/posx.jpg",
+		"textures/miramar/negx.jpg",
+		"textures/miramar/posy.jpg",
+		"textures/miramar/negy.jpg",
+		"textures/miramar/posz.jpg",
+		"textures/miramar/negz.jpg",
 		glow::ColorSpace::sRGB));
 
 	this->envLutGGX = computeEnvLutGGX(64, 64);

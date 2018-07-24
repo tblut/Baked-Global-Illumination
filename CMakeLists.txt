@@ -29,8 +29,11 @@ option(GLFW_INSTALL "" OFF)
 option(BUILD_SHARED_LIBS "" ON)
 add_subdirectory(libs/glfw)
 
-find_package(embree 3.1 REQUIRED PATHS libs/embree-3.1.0.x86_64.linux NO_DEFAULT_PATH)
-find_package(embree 3.1 REQUIRED)
+if (NOT MSVC)
+    find_package(embree 3.1 REQUIRED PATHS libs/embree-3.1.0.x86_64.linux NO_DEFAULT_PATH)
+else()
+    find_package(embree 3.1 REQUIRED)
+endif()
 include_directories(${EMBREE_INCLUDE_DIRS})
 
 find_package(OpenMP)

@@ -75,12 +75,14 @@ IlluminationBaker::IlluminationBaker(const PathTracer& pathTracer) : pathTracer(
 
 }
 
-SharedImage IlluminationBaker::bakeIrradiance(const Primitive& primitive, int width, int height, int samplesPerTexel) {
+SharedImage IlluminationBaker::bakeIrradiance(const Primitive& primitive, int width, int height, int samplesPerTexel) const {
 	auto values = bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
 		glm::vec3 dir = sampleCosineHemisphere(normal);
 		glm::vec3 irradiance = pathTracer->trace(pos, dir); // dot(N,L) and pdf canceled
 		return irradiance;
 	});
+
+	fillIllegalTexels(primitive, width, height, values);
 
 	SharedImage bakedMap = std::make_shared<Image>(width, height, GL_RGB16F);
 	for (int i = 0; i < width * height; ++i) {
@@ -90,7 +92,7 @@ SharedImage IlluminationBaker::bakeIrradiance(const Primitive& primitive, int wi
 }
 
 SharedImage IlluminationBaker::bakeAmbientOcclusion(const Primitive& primitive, int width, int height,
-													int samplesPerTexel, float maxDistance) {
+													int samplesPerTexel, float maxDistance) const {
 	auto values = bake(primitive, width, height, samplesPerTexel, [&](glm::vec3 pos, glm::vec3 normal) {
 		glm::vec3 dir = sampleCosineHemisphere(normal);
 		float occlusionDist = pathTracer->testOcclusionDist(pos, dir);
@@ -110,7 +112,7 @@ SharedImage IlluminationBaker::bakeAmbientOcclusion(const Primitive& primitive, 
 }
 
 std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int width, int height,
-											   int samplesPerTexel, const BakeOperator& op) {
+											   int samplesPerTexel, const BakeOperator& op) const {
 	std::vector<glm::vec3> buffer(width * height, glm::vec3(0.0f));
 	std::vector<int> numSamples(width * height, 0);
 	glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform)));
@@ -149,8 +151,6 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 
 		int numStepsX = static_cast<int>(maxX) - static_cast<int>(minX) + 1;
 		int numStepsY = static_cast<int>(maxY) - static_cast<int>(minY) + 1;
-		//if (static_cast<int>(minX) + numStepsX >= width) numStepsX = width - static_cast<int>(minX);// -1;
-		//if (static_cast<int>(minY) + numStepsY >= height) numStepsY = height - static_cast<int>(minY);// -1;
 
 		for (int sample = 0; sample < samplesPerTexel; ++sample) {
 			#pragma omp parallel for
@@ -183,4 +183,101 @@ std::vector<glm::vec3> IlluminationBaker::bake(const Primitive& primitive, int w
 	}
 
 	return buffer;
+}
+
+void IlluminationBaker::fillIllegalTexels(const Primitive& primitive, int width, int height, std::vector<glm::vec3>& values) const {
+	std::vector<bool> illegalMap(width * height, true);
+
+	for (std::size_t i = 0; i < primitive.indices.size(); i += 3) {
+		unsigned int index0 = primitive.indices[i];
+		unsigned int index1 = primitive.indices[i + 1];
+		unsigned int index2 = primitive.indices[i + 2];
+
+		glm::vec2 t0 = primitive.lightMapTexCoords[index0];
+		glm::vec2 t1 = primitive.lightMapTexCoords[index1];
+		glm::vec2 t2 = primitive.lightMapTexCoords[index2];
+
+		glm::vec2 texel0 = glm::floor(t0 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
+		glm::vec2 texel1 = glm::floor(t1 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
+		glm::vec2 texel2 = glm::floor(t2 * glm::vec2(width - 1, height - 1)) + glm::vec2(0.5f);
+
+		float minX = std::min(texel0.x, std::min(texel1.x, texel2.x));
+		float minY = std::min(texel0.y, std::min(texel1.y, texel2.y));
+		float maxX = std::max(texel0.x, std::max(texel1.x, texel2.x));
+		float maxY = std::max(texel0.y, std::max(texel1.y, texel2.y));
+
+		int numStepsX = static_cast<int>(maxX) - static_cast<int>(minX) + 1;
+		int numStepsY = static_cast<int>(maxY) - static_cast<int>(minY) + 1;
+
+		int numSamplesX = 8;
+		int numSamplesY = 8;
+		glm::vec2 offset = glm::vec2(1.0f / numSamplesX, 1.0f / numSamplesY);
+		glm::vec2 stepSize = (glm::vec2(1.0f) - offset * 2.0f) / glm::vec2(numSamplesX, numSamplesY);
+
+		for (int stepY = 0; stepY < numStepsY; ++stepY) {
+			for (int stepX = 0; stepX < numStepsX; ++stepX) {
+				glm::vec2 texelCenter = glm::vec2(minX, minY) + glm::vec2(stepX, stepY);
+				int imageX = static_cast<int>(texelCenter.x);
+				int imageY = static_cast<int>(texelCenter.y);
+
+				for (int y = 0; y < numSamplesY; ++y) {
+					for (int x = 0; x < numSamplesX; ++x) {
+						glm::vec2 samplePoint = texelCenter - glm::vec2(0.5f) + offset + stepSize * glm::vec2(x, y);
+						if (isPointInTriangle(getBarycentricCoords(samplePoint, texel0, texel1, texel2))) {
+							illegalMap[imageX + imageY * width] = false;
+							break;
+						}
+					}
+
+					if (!illegalMap[imageX + imageY * width]) {
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			if (!illegalMap[x + y * width]) {
+				continue;
+			}
+
+			glm::ivec2 legalCoord = findClosestLegalTexel(x, y, width, height, illegalMap);
+			if (legalCoord.x != -1 && legalCoord.y != -1) {
+				values[x + y * width] = values[legalCoord.x + legalCoord.y * width];
+			}
+		}
+	}
+}
+
+glm::ivec2 IlluminationBaker::findClosestLegalTexel(int x, int y, int width, int height, const std::vector<bool>& illegalMap) const {
+	glm::ivec2 offsets[] = {
+		{ -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, // Distance = 1 * offsetScale
+		{ -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } // Distance = sqrt(2) * offsetScale
+	};
+	int offsetScale = 1;
+
+	bool isOutOfBounds = false;
+	while (!isOutOfBounds) {
+		for (auto offset : offsets) {
+			glm::ivec2 coord = glm::ivec2(x, y) + offset * offsetScale;
+			if ((coord.x < 0 || coord.x >= width) && (coord.y < 0 || coord.y >= height)) {
+				isOutOfBounds = true;
+				continue;
+			}
+
+			coord.x = std::max(0, std::min(width - 1, coord.x));
+			coord.y = std::max(0, std::min(height - 1, coord.y));
+			isOutOfBounds = false;
+
+			if (!illegalMap[coord.x + coord.y * width]) {
+				return coord;
+			}
+		}
+
+		offsetScale++;
+	}
+
+	return glm::ivec2(-1);
 }

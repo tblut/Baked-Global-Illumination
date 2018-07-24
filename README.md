@@ -10,9 +10,10 @@ Timothy Blut | 334609 | <timothy.blut@rwth-aachen.de>
 * Main goal: Precompute diffuse and specular global illumination for use in realtime rendering.
 * Shading model from Epic Games (Lambert for diffuse and GGX for specular)
 	* With support for albedo, roughness and normal maps
-* Forward rendering pipeline with HDR, Bloom, PCF shadows, Dithering and FXAA
+* Forward PBR pipeline with HDR, filmic tone mapping, bloom, PCF shadows, dithering and FXAA
 * glTF scene importer (allows Metallic/Roughness material setup)
 * Indirect diffuse lighting is solved using irradiance maps (light maps)
+    * Uses Intel's Embree for efficient ray/scene intersection tests
 	* Irradiance for each light map texel is computed using an unidirectional path tracer
 	* The path tracer uses importance sampling and supports a background cubemap, and albedo and roughness maps (but no normal maps)
 	* The scene loader expects the light map UVs to be in channel 0 (channel 1 is for albedo/roughness/normal maps)

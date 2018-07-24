@@ -76,8 +76,9 @@ void main() {
 #ifdef IBL
 	if (uUseIBL) {
 		vec3 R = reflect(-V, N);
-	//#ifdef LOCAL_PROBES
+	#ifdef LOCAL_PROBES
 		direct += iblSpecularGGXProbe(N, V, R, color, roughness, uMetallic, vWorldPos) * uIBLFade * uLocalProbesFade;
+	#endif
 	//#else
 		direct += iblSpecularGGX(N, V, R, color, roughness, uMetallic) * uIBLFade * (1.0 - uLocalProbesFade);
 	//#endif

@@ -1,4 +1,4 @@
-Precomputed Global Illumiation for Games
+Precomputed Global Illumination for Games
 ==============
 
 Game Devolpment Practical SS18

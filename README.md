@@ -1,7 +1,7 @@
 Precomputed Global Illumination for Games
 ==============
 
-Game Devolpment Practical SS18
+Game Development Practical SS18
 
 Timothy Blut | 334609 | <timothy.blut@rwth-aachen.de>
 
